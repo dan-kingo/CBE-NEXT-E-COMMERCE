@@ -54,7 +54,7 @@ export const useAuthStore = defineStore("auth", {
       useCookie<string | null>("access_token").value = null;
       useCookie<string | null>("refresh_token").value = null;
 
-      navigateTo("/login");
+      navigateTo("/");
     },
   },
 });
