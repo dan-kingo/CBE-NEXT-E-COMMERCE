@@ -46,7 +46,7 @@ const isActive = (to: string) =>
                     <SidebarMenuButton>
                        
                        <div  class="size-8 rounded-full bg-brand/30 text-brand/70 flex items-center justify-center font-medium">
-                       U
+                       A
                        </div>
                         <div class="group-data-[collapsible=icon]:hidden text-left">
                             <p class="text-sm font-medium leading-none">Admin One</p>
