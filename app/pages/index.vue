@@ -3,7 +3,6 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { loginSchema } from '@/validations/auth.schema'
 import { useAuth } from '@/composables/useAuth'
-import { p } from 'vue-router/dist/router-CWoNjPRp.mjs'
 
 const { login, isLoading } = useAuth()
 const toast = useToast()
@@ -37,16 +36,11 @@ definePageMeta({
 <template>
     <Card class="w-full max-w-sm">
         <CardHeader>
-            <CardTitle>Login to your account</CardTitle>
+            <CardTitle>Admin Login</CardTitle>
             <CardDescription>
                 Enter your email below to login to your account
             </CardDescription>
-            <CardAction>
-                <Button variant="link" @click.prevent="$router.push('/signup')"
-                    class="cursor-pointer hover:text-brand-hover">
-                    Sign Up
-                </Button>
-            </CardAction>
+            
         </CardHeader>
         <CardContent>
             <form @submit.prevent="onSubmit">
@@ -59,9 +53,7 @@ definePageMeta({
                     <div class="flex flex-col space-y-1.5">
                         <div class="flex items-center">
                             <Label for="password">Password</Label>
-                            <NuxtLink to="/" class="ml-auto hover:text-brand-hover inline-block text-sm underline">
-                                Forgot your password?
-                            </NuxtLink>
+                            
                         </div>
                         <Input id="password" name="password" v-model="password" type="password"
                             placeholder="Enter your password" />

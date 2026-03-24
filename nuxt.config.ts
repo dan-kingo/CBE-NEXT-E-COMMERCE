@@ -46,7 +46,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBase: "https://bellytalk.onrender.com/api",
+      apiBase: "http://10.14.214.171:8080/api",
     },
   },
 

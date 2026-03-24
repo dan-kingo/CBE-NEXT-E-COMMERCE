@@ -80,8 +80,8 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --button: #00DC82;
-  --brand: #4f46e5;
-  --brand-hover: #4338ca;
+  --brand: #95298E;
+  --brand-hover: #95298E80;
 }
 
 .dark {
