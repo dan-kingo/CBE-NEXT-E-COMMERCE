@@ -8,4 +8,8 @@ export const subscriptionPlanService = {
       body: payload,
     });
   },
+  async getAll() {
+    const { $api } = useNuxtApp();
+    return await $api<SubscriptionPlan[]>("/admin/subscription-plans");
+  },
 };

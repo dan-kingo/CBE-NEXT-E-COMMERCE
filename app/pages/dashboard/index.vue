@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { categoryService } from "~/services/category.service";
+import { customerService } from "~/services/customer.service";
 import { tenantService } from "~/services/tenant.service";
 
 definePageMeta({
@@ -11,15 +12,18 @@ const { getMessageFromUnknown } = useApiError();
 
 const categoryCount = ref(0);
 const tenantCount = ref(0);
+const customerCount = ref(0);
 
 try {
-    const [categories, tenants] = await Promise.all([
+    const [categories, tenants,customers] = await Promise.all([
         categoryService.getAll(),
         tenantService.getAll(),
+        customerService.getAll(),
     ]);
 
     categoryCount.value = categories.length;
     tenantCount.value = tenants.length;
+    customerCount.value = customers.length;
 } catch (error) {
     toast.error({ message: getMessageFromUnknown(error) });
 }
@@ -30,7 +34,7 @@ try {
         <div>
             <h1 class="text-2xl font-semibold">Admin Dashboard</h1>
             <p class="text-sm text-muted-foreground">
-                Quick visibility into currently implemented management modules.
+                Quick manametric overview of key metrics and access points to manage categories, tenants, customers, and subscription plans.
             </p>
         </div>
 
@@ -51,15 +55,15 @@ try {
 
             <Card class="px-6">
                 <div class="space-y-1">
-                    <p class="text-sm text-muted-foreground">Admin Bootstrap</p>
-                    <p class="text-base font-medium">Ready</p>
+                    <p class="text-sm text-muted-foreground">Customers</p>
+                    <p class="text-2xl font-semibold">{{ customerCount }}</p>
                 </div>
             </Card>
 
             <Card class="px-6">
                 <div class="space-y-1">
                     <p class="text-sm text-muted-foreground">Plans</p>
-                    <p class="text-base font-medium">Create flow ready</p>
+                    <p class="text-2xl font-semibold">0</p>
                 </div>
             </Card>
         </div>
