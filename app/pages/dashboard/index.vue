@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { categoryService } from "~/services/category.service";
-import { customerService } from "~/services/customer.service";
-import { tenantService } from "~/services/tenant.service";
+import { storeToRefs } from "pinia";
+import { useAdminDataStore } from "~/stores/adminData.store";
 
 definePageMeta({
     layout: "dashboard",
@@ -9,28 +8,46 @@ definePageMeta({
 
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
+const adminDataStore = useAdminDataStore();
+const {
+    categories,
+    tenants,
+    customers,
+    categoriesLoaded,
+    tenantsLoaded,
+    customersLoaded,
+    isCategoriesLoading,
+    isTenantsLoading,
+    isCustomersLoading,
+} = storeToRefs(adminDataStore);
 
-const categoryCount = ref(0);
-const tenantCount = ref(0);
-const customerCount = ref(0);
-const isLoading = ref(true);
+const categoryCount = computed(() => categories.value.length);
+const tenantCount = computed(() => tenants.value.length);
+const customerCount = computed(() => customers.value.length);
+const isLoading = computed(() => {
+    const hasAnyLoaded =
+        categoriesLoaded.value || tenantsLoaded.value || customersLoaded.value;
+    const anyLoading =
+        isCategoriesLoading.value || isTenantsLoading.value || isCustomersLoading.value;
+
+    return anyLoading && !hasAnyLoaded;
+});
 
 const loadDashboardMetrics = async () => {
-    isLoading.value = true;
     try {
-        const [categories, tenants, customers] = await Promise.all([
-            categoryService.getAll(),
-            tenantService.getAll(),
-            customerService.getAll(),
+        await Promise.all([
+            adminDataStore.ensureCategories(),
+            adminDataStore.ensureTenants(),
+            adminDataStore.ensureCustomers(),
         ]);
 
-        categoryCount.value = categories.length;
-        tenantCount.value = tenants.length;
-        customerCount.value = customers.length;
+        void Promise.all([
+            adminDataStore.revalidateCategories(),
+            adminDataStore.revalidateTenants(),
+            adminDataStore.revalidateCustomers(),
+        ]);
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
-    } finally {
-        isLoading.value = false;
     }
 };
 

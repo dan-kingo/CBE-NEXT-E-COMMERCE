@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import type { CategoryResponse, CreateCategoryRequest } from "~/types/admin";
 import { categoryService } from "~/services/category.service";
+import { useAdminDataStore } from "~/stores/adminData.store";
 import { useAdminContextStore } from "~/stores/adminContext.store";
 import { categorySchema } from "~/validations/admin.schema";
 
@@ -11,11 +13,11 @@ definePageMeta({
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const contextStore = useAdminContextStore();
+const adminDataStore = useAdminDataStore();
+const { categories, isCategoriesLoading, categoriesLoaded } = storeToRefs(adminDataStore);
 
-const categories = ref<CategoryResponse[]>([]);
 const descendants = ref<number[]>([]);
 const selectedCategory = ref<CategoryResponse | null>(null);
-const isLoading = ref(true);
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
 const editingCategoryId = ref<number | null>(null);
@@ -72,14 +74,19 @@ const parseFormToPayload = (): CreateCategoryRequest | null => {
     return parsed.data;
 };
 
-const loadCategories = async () => {
-    isLoading.value = true;
+const isInitialLoading = computed(
+    () => isCategoriesLoading.value && !categoriesLoaded.value,
+);
+
+const loadCategories = async (force = false) => {
     try {
-        categories.value = await categoryService.getAll();
+        await adminDataStore.ensureCategories(force);
+
+        if (categoriesLoaded.value) {
+            void adminDataStore.revalidateCategories();
+        }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
-    } finally {
-        isLoading.value = false;
     }
 };
 
@@ -100,14 +107,15 @@ const submitCategory = async () => {
     isSubmitting.value = true;
     try {
         if (editingCategoryId.value) {
-            await categoryService.update(editingCategoryId.value, payload);
+            const updated = await categoryService.update(editingCategoryId.value, payload);
+            adminDataStore.upsertCategory(updated);
             toast.success({ message: "Category updated successfully" });
         } else {
-            await categoryService.create(payload);
+            const created = await categoryService.create(payload);
+            adminDataStore.upsertCategory(created);
             toast.success({ message: "Category created successfully" });
         }
 
-        await loadCategories();
         resetForm();
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
@@ -136,7 +144,7 @@ const confirmDeleteCategory = async () => {
     try {
         const deletingId = categoryPendingDelete.value.id;
         await categoryService.remove(deletingId);
-        categories.value = categories.value.filter((item) => item.id !== deletingId);
+        adminDataStore.removeCategory(deletingId);
         toast.success({ message: "Category deleted" });
 
         if (selectedCategory.value?.id === deletingId) {
@@ -155,9 +163,12 @@ const confirmDeleteCategory = async () => {
 
 const loadDescendants = async (category: CategoryResponse) => {
     try {
-        descendants.value = await categoryService.getDescendantIds(category.id);
+        descendants.value = await adminDataStore.ensureDescendants(category.id);
         selectedCategory.value = category;
         contextStore.setSelectedCategoryId(category.id);
+
+        // Keep UX instant with cache, then silently refresh this subtree.
+        void adminDataStore.revalidateDescendants(category.id);
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
     }
@@ -220,7 +231,7 @@ onMounted(() => {
                         <Input v-model="searchQuery" placeholder="Search by name or slug" class="max-w-sm" />
                     </div>
 
-                    <div v-if="isLoading" class="text-sm text-muted-foreground">Loading categories...</div>
+                    <div v-if="isInitialLoading" class="text-sm text-muted-foreground">Loading categories...</div>
 
                     <div v-else class="overflow-x-auto">
                         <table class="w-full border-collapse text-sm">
@@ -286,8 +297,10 @@ onMounted(() => {
                 </p>
 
                 <div class="mt-6 flex justify-end gap-2">
-                    <Button class="cursor-pointer" variant="outline" :disabled="isDeleting" @click="closeDeleteDialog">Cancel</Button>
-                    <Button class="cursor-pointer" variant="destructive" :disabled="isDeleting" @click="confirmDeleteCategory">
+                    <Button class="cursor-pointer" variant="outline" :disabled="isDeleting"
+                        @click="closeDeleteDialog">Cancel</Button>
+                    <Button class="cursor-pointer" variant="destructive" :disabled="isDeleting"
+                        @click="confirmDeleteCategory">
                         {{ isDeleting ? "Deleting..." : "Delete" }}
                     </Button>
                 </div>

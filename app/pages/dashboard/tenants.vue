@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import type { CreateTenantRequest, UserResponse } from "~/types/admin";
 import { tenantService } from "~/services/tenant.service";
+import { useAdminDataStore } from "~/stores/adminData.store";
 import { tenantSchema } from "~/validations/admin.schema";
 
 definePageMeta({
@@ -9,10 +11,11 @@ definePageMeta({
 
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
+const adminDataStore = useAdminDataStore();
+const { tenants, isTenantsLoading, tenantsLoaded } = storeToRefs(adminDataStore);
 
-const tenants = ref<UserResponse[]>([]);
-const isLoading = ref(true);
 const isSubmitting = ref(false);
+const isInitialLoading = computed(() => isTenantsLoading.value && !tenantsLoaded.value);
 
 const form = reactive<CreateTenantRequest>({
     email: "",
@@ -22,14 +25,15 @@ const form = reactive<CreateTenantRequest>({
     phoneNumber: "",
 });
 
-const loadTenants = async () => {
-    isLoading.value = true;
+const loadTenants = async (force = false) => {
     try {
-        tenants.value = await tenantService.getAll();
+        await adminDataStore.ensureTenants(force);
+
+        if (tenantsLoaded.value) {
+            void adminDataStore.revalidateTenants();
+        }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
-    } finally {
-        isLoading.value = false;
     }
 };
 
@@ -43,7 +47,7 @@ const submitTenant = async () => {
     isSubmitting.value = true;
     try {
         const created = await tenantService.create(parsed.data);
-        tenants.value = [created, ...tenants.value];
+        adminDataStore.prependTenant(created);
         toast.success({ message: "Tenant created successfully" });
 
         form.email = "";
@@ -117,7 +121,7 @@ onMounted(() => {
                         <Badge variant="outline">List + Create Available</Badge>
                     </div>
 
-                    <div v-if="isLoading" class="text-sm text-muted-foreground">Loading tenants...</div>
+                    <div v-if="isInitialLoading" class="text-sm text-muted-foreground">Loading tenants...</div>
 
                     <div v-else class="overflow-x-auto">
                         <table class="w-full border-collapse text-sm">
