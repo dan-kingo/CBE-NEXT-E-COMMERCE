@@ -1,5 +1,5 @@
-import type { LoginInput, } from "~/validations/auth.schema";
-import type { ProfileData } from "~/utils/constants";
+import type { LoginInput } from "~/validations/auth.schema";
+import type { ProfileData } from "~/types/admin";
 
 export const authService = {
   async login(payload: LoginInput) {
@@ -9,8 +9,6 @@ export const authService = {
       body: payload,
     });
   },
-
- 
 
   async getMe() {
     const { $api } = useNuxtApp();
