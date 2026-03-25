@@ -22,6 +22,7 @@ const isSubmitting = ref(false);
 const isDeleting = ref(false);
 const isDescendantsLoading = ref(false);
 const editingCategoryId = ref<number | null>(null);
+const editFormRef = ref<HTMLElement | null>(null);
 const isDeleteDialogOpen = ref(false);
 const isDescendantsDialogOpen = ref(false);
 const categoryPendingDelete = ref<CategoryResponse | null>(null);
@@ -150,12 +151,17 @@ const loadCategories = async (force = false) => {
     }
 };
 
-const startEdit = (category: CategoryResponse) => {
+const startEdit = async (category: CategoryResponse) => {
     editingCategoryId.value = category.id;
     form.name = category.name;
     form.slug = category.slug;
     form.description = category.description || "";
     form.parentId = category.parentId ? String(category.parentId) : "";
+
+    if (window.matchMedia("(max-width: 767px)").matches) {
+        await nextTick();
+        editFormRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 };
 
 const submitCategory = async () => {
@@ -357,7 +363,7 @@ onMounted(() => {
     <section class="space-y-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-semibold">Categories Management</h1>
+                <h1 class="md:text-2xl text-xl font-semibold">Categories Management</h1>
                 <p class="text-sm text-muted-foreground">
                     Manage all categories and their descendants in one place.
                 </p>
@@ -366,91 +372,134 @@ onMounted(() => {
         </div>
 
         <div class="grid gap-4 lg:grid-cols-3">
-            <Card class="lg:col-span-1 px-6">
-                <div class="space-y-4">
-                    <h2 class="text-lg font-medium">
-                        {{ editingCategoryId ? "Edit Category" : "Create Category" }}
-                    </h2>
+            <div ref="editFormRef">
+                <Card class="lg:col-span-1 px-6">
+                    <div class="space-y-4">
+                        <h2 class="text-lg font-medium">
+                            {{ editingCategoryId ? "Edit Category" : "Create Category" }}
+                        </h2>
 
-                    <div class="space-y-2">
-                        <Label for="category-name">Name</Label>
-                        <Input id="category-name" v-model="form.name" placeholder="Electronics" />
+                        <div class="space-y-2">
+                            <Label for="category-name">Name</Label>
+                            <Input id="category-name" v-model="form.name" placeholder="Electronics" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="category-slug">Slug</Label>
+                            <Input id="category-slug" v-model="form.slug" placeholder="electronics" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="category-parent">Parent Category (optional)</Label>
+                            <select id="category-parent" v-model="form.parentId"
+                                class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                <option value="">No parent</option>
+                                <option v-for="option in allCategoryOptions" :key="option.category.id"
+                                    :value="String(option.category.id)">
+                                    {{ getTreeLabel(option.category.name, option.depth) }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="category-description">Description</Label>
+                            <Textarea id="category-description" v-model="form.description"
+                                placeholder="Category details" />
+                        </div>
+
+                        <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="submitCategory">
+                            {{ isSubmitting ? "Saving..." : editingCategoryId ? "Update Category" : "Create Category" }}
+                        </Button>
                     </div>
-
-                    <div class="space-y-2">
-                        <Label for="category-slug">Slug</Label>
-                        <Input id="category-slug" v-model="form.slug" placeholder="electronics" />
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="category-parent">Parent Category (optional)</Label>
-                        <select id="category-parent" v-model="form.parentId"
-                            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
-                            <option value="">No parent</option>
-                            <option v-for="option in allCategoryOptions" :key="option.category.id"
-                                :value="String(option.category.id)">
-                                {{ getTreeLabel(option.category.name, option.depth) }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="category-description">Description</Label>
-                        <Textarea id="category-description" v-model="form.description" placeholder="Category details" />
-                    </div>
-
-                    <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="submitCategory">
-                        {{ isSubmitting ? "Saving..." : editingCategoryId ? "Update Category" : "Create Category" }}
-                    </Button>
-                </div>
-            </Card>
+                </Card>
+            </div>
 
             <Card class="lg:col-span-2 px-6">
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <h2 class="text-lg font-medium">Category List</h2>
+                    <div class="flex items-center justify-between gap-3 flex-wrap">
+                        <h2 class="md:text-lg text-xl font-medium">Category List</h2>
                         <Input v-model="searchQuery" placeholder="Search by name or slug" class="max-w-sm" />
                     </div>
 
                     <div v-if="isInitialLoading" class="text-sm text-muted-foreground">Loading categories...</div>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full border-collapse text-sm">
-                            <thead>
-                                <tr class="border-b text-left">
-                                    <th class="py-2">Name</th>
-                                    <th class="py-2">Slug</th>
-                                    <th class="py-2">Parent</th>
-                                    <th class="py-2">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="row in filteredCategories" :key="row.category.id" class="border-b align-top">
-                                    <td class="py-2 font-medium">
-                                        <span :style="{ paddingLeft: `${row.depth * 16}px` }" class="inline-block">
-                                            <span v-if="row.depth" class="mr-1 text-muted-foreground">-</span>
-                                            {{ row.category.name }}
-                                        </span>
-                                    </td>
-                                    <td class="py-2 text-muted-foreground">{{ row.category.slug }}</td>
-                                    <td class="py-2">{{ getParentName(row.category.parentId) }}</td>
-                                    <td class="py-2">
-                                        <div class="flex flex-wrap gap-2">
-                                            <Button class="cursor-pointer" size="sm" variant="outline"
-                                                @click="startEdit(row.category)">Edit</Button>
-                                            <Button class="cursor-pointer" size="sm" variant="outline"
-                                                @click="loadDescendants(row.category)">Descendants</Button>
-                                            <Button class="cursor-pointer" size="sm" variant="destructive"
-                                                @click="openDeleteDialog(row.category)">Delete</Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-if="!filteredCategories.length">
-                                    <td colspan="4" class="py-4 text-center text-muted-foreground">No categories found.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div v-else>
+                        <div class="space-y-3 md:hidden">
+                            <div v-for="row in filteredCategories" :key="`mobile-${row.category.id}`"
+                                class="rounded-lg border p-3 space-y-3">
+                                <div>
+                                    <p class="text-xs text-muted-foreground">Category</p>
+                                    <p class="font-medium" :style="{ paddingLeft: `${row.depth * 12}px` }">
+                                        <span v-if="row.depth" class="mr-1 text-muted-foreground">-</span>{{
+                                            row.category.name }}
+                                    </p>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <p class="text-xs text-muted-foreground">Slug</p>
+                                        <p>{{ row.category.slug }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-muted-foreground">Parent</p>
+                                        <p>{{ getParentName(row.category.parentId) }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-2">
+                                    <Button class="cursor-pointer w-full" size="sm" variant="outline"
+                                        @click="startEdit(row.category)">Edit</Button>
+                                    <Button class="cursor-pointer w-full" size="sm" variant="outline"
+                                        @click="loadDescendants(row.category)">Descendants</Button>
+                                    <Button class="cursor-pointer w-full" size="sm" variant="destructive"
+                                        @click="openDeleteDialog(row.category)">Delete</Button>
+                                </div>
+                            </div>
+
+                            <p v-if="!filteredCategories.length" class="py-4 text-center text-muted-foreground">No
+                                categories found.</p>
+                        </div>
+
+                        <div class="hidden overflow-x-auto md:block">
+                            <table class="w-full border-collapse text-sm">
+                                <thead>
+                                    <tr class="border-b text-left">
+                                        <th class="py-2">Name</th>
+                                        <th class="py-2">Slug</th>
+                                        <th class="py-2">Parent</th>
+                                        <th class="py-2">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="row in filteredCategories" :key="row.category.id"
+                                        class="border-b align-top">
+                                        <td class="py-2 font-medium">
+                                            <span :style="{ paddingLeft: `${row.depth * 16}px` }" class="inline-block">
+                                                <span v-if="row.depth" class="mr-1 text-muted-foreground">-</span>
+                                                {{ row.category.name }}
+                                            </span>
+                                        </td>
+                                        <td class="py-2 text-muted-foreground">{{ row.category.slug }}</td>
+                                        <td class="py-2">{{ getParentName(row.category.parentId) }}</td>
+                                        <td class="py-2">
+                                            <div class="flex flex-wrap gap-2">
+                                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                                    @click="startEdit(row.category)">Edit</Button>
+                                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                                    @click="loadDescendants(row.category)">Descendants</Button>
+                                                <Button class="cursor-pointer" size="sm" variant="destructive"
+                                                    @click="openDeleteDialog(row.category)">Delete</Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!filteredCategories.length">
+                                        <td colspan="4" class="py-4 text-center text-muted-foreground">No categories
+                                            found.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </Card>
