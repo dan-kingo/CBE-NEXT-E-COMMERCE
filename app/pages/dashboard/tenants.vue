@@ -72,8 +72,7 @@ onMounted(() => {
         <div>
             <h1 class="text-2xl font-semibold">Tenant Management</h1>
             <p class="text-sm text-muted-foreground">
-                Current API supports tenant create and list. Edit/delete will be enabled when backend endpoints are
-                available.
+                create and manage tenant accounts that can access the dashboard.
             </p>
         </div>
 
@@ -108,7 +107,7 @@ onMounted(() => {
                         <Input id="tenant-phone" v-model="form.phoneNumber" placeholder="+2519xxxxxxx" />
                     </div>
 
-                    <Button class="w-full" :disabled="isSubmitting" @click="submitTenant">
+                    <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="submitTenant">
                         {{ isSubmitting ? "Creating..." : "Create Tenant" }}
                     </Button>
                 </div>
@@ -118,7 +117,7 @@ onMounted(() => {
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-medium">Tenant List</h2>
-                        <Badge variant="outline">List + Create Available</Badge>
+                        
                     </div>
 
                     <div v-if="isInitialLoading" class="text-sm text-muted-foreground">Loading tenants...</div>
@@ -128,7 +127,6 @@ onMounted(() => {
                             <thead>
                                 <tr class="border-b text-left">
                                     <th class="py-2">Email</th>
-                                    <th class="py-2">Tenant ID</th>
                                     <th class="py-2">Name</th>
                                     <th class="py-2">Status</th>
                                 </tr>
@@ -136,7 +134,6 @@ onMounted(() => {
                             <tbody>
                                 <tr v-for="tenant in tenants" :key="tenant.id" class="border-b">
                                     <td class="py-2">{{ tenant.email }}</td>
-                                    <td class="py-2 text-muted-foreground">{{ tenant.tenantId || "-" }}</td>
                                     <td class="py-2">{{ [tenant.tenantFirstName,
                                     tenant.tenantLastName].filter(Boolean).join(" ") || "-" }}</td>
                                     <td class="py-2">

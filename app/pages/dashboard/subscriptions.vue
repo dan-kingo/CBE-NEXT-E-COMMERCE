@@ -52,8 +52,7 @@ const createPlan = async () => {
         <div>
             <h1 class="text-2xl font-semibold">Subscription Plans</h1>
             <p class="text-sm text-muted-foreground">
-                API currently supports creating subscription plans. Additional plan CRUD actions will be added after
-                backend endpoints are exposed.
+               create and manage subscription plans for your tenants.
             </p>
         </div>
 
@@ -87,7 +86,7 @@ const createPlan = async () => {
                         <Input id="plan-duration" v-model="form.durationDays" type="number" placeholder="30" />
                     </div>
 
-                    <Button class="w-full" :disabled="isSubmitting" @click="createPlan">
+                    <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="createPlan">
                         {{ isSubmitting ? "Creating..." : "Create Plan" }}
                     </Button>
                 </div>
@@ -97,7 +96,7 @@ const createPlan = async () => {
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-medium">Created in Session</h2>
-                        <Badge variant="outline">Create Available</Badge>
+                       
                     </div>
 
                     <div class="overflow-x-auto">
