@@ -11,7 +11,7 @@ const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 
 const tenants = ref<UserResponse[]>([]);
-const isLoading = ref(false);
+const isLoading = ref(true);
 const isSubmitting = ref(false);
 
 const form = reactive<CreateTenantRequest>({
@@ -58,7 +58,9 @@ const submitTenant = async () => {
     }
 };
 
-await loadTenants();
+onMounted(() => {
+    loadTenants();
+});
 </script>
 
 <template>
@@ -132,7 +134,7 @@ await loadTenants();
                                     <td class="py-2">{{ tenant.email }}</td>
                                     <td class="py-2 text-muted-foreground">{{ tenant.tenantId || "-" }}</td>
                                     <td class="py-2">{{ [tenant.tenantFirstName,
-                                        tenant.tenantLastName].filter(Boolean).join(" ") || "-" }}</td>
+                                    tenant.tenantLastName].filter(Boolean).join(" ") || "-" }}</td>
                                     <td class="py-2">
                                         <Badge :variant="tenant.enabled ? 'outline' : 'destructive'">
                                             {{ tenant.enabled ? "Enabled" : "Disabled" }}

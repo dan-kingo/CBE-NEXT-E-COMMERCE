@@ -15,9 +15,12 @@ const contextStore = useAdminContextStore();
 const categories = ref<CategoryResponse[]>([]);
 const descendants = ref<number[]>([]);
 const selectedCategory = ref<CategoryResponse | null>(null);
-const isLoading = ref(false);
+const isLoading = ref(true);
 const isSubmitting = ref(false);
+const isDeleting = ref(false);
 const editingCategoryId = ref<number | null>(null);
+const isDeleteDialogOpen = ref(false);
+const categoryPendingDelete = ref<CategoryResponse | null>(null);
 
 const form = reactive({
     name: "",
@@ -113,24 +116,40 @@ const submitCategory = async () => {
     }
 };
 
-const deleteCategory = async (category: CategoryResponse) => {
-    const confirmed = confirm(`Delete category \"${category.name}\"?`);
-    if (!confirmed) {
+const openDeleteDialog = (category: CategoryResponse) => {
+    categoryPendingDelete.value = category;
+    isDeleteDialogOpen.value = true;
+};
+
+const closeDeleteDialog = () => {
+    isDeleteDialogOpen.value = false;
+    categoryPendingDelete.value = null;
+};
+
+const confirmDeleteCategory = async () => {
+    if (!categoryPendingDelete.value) {
         return;
     }
 
+    isDeleting.value = true;
+
     try {
-        await categoryService.remove(category.id);
-        categories.value = categories.value.filter((item) => item.id !== category.id);
+        const deletingId = categoryPendingDelete.value.id;
+        await categoryService.remove(deletingId);
+        categories.value = categories.value.filter((item) => item.id !== deletingId);
         toast.success({ message: "Category deleted" });
 
-        if (selectedCategory.value?.id === category.id) {
+        if (selectedCategory.value?.id === deletingId) {
             selectedCategory.value = null;
             descendants.value = [];
             contextStore.setSelectedCategoryId(null);
         }
+
+        closeDeleteDialog();
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
+    } finally {
+        isDeleting.value = false;
     }
 };
 
@@ -144,7 +163,9 @@ const loadDescendants = async (category: CategoryResponse) => {
     }
 };
 
-await loadCategories();
+onMounted(() => {
+    loadCategories();
+});
 </script>
 
 <template>
@@ -153,10 +174,10 @@ await loadCategories();
             <div>
                 <h1 class="text-2xl font-semibold">Categories Management</h1>
                 <p class="text-sm text-muted-foreground">
-                    Full CRUD + descendants lookup powered by current API contracts.
+                    Manage all categories and their descendants in one place.
                 </p>
             </div>
-            <Button type="button" variant="outline" @click="resetForm">Reset Form</Button>
+            <Button class="cursor-pointer" type="button" variant="outline" @click="resetForm">Reset Form</Button>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-3">
@@ -186,7 +207,7 @@ await loadCategories();
                         <Textarea id="category-description" v-model="form.description" placeholder="Category details" />
                     </div>
 
-                    <Button class="w-full" :disabled="isSubmitting" @click="submitCategory">
+                    <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="submitCategory">
                         {{ isSubmitting ? "Saving..." : editingCategoryId ? "Update Category" : "Create Category" }}
                     </Button>
                 </div>
@@ -219,12 +240,12 @@ await loadCategories();
                                     <td class="py-2">{{ category.parentId ?? "-" }}</td>
                                     <td class="py-2">
                                         <div class="flex flex-wrap gap-2">
-                                            <Button size="sm" variant="outline"
+                                            <Button class="cursor-pointer" size="sm" variant="outline"
                                                 @click="startEdit(category)">Edit</Button>
-                                            <Button size="sm" variant="outline"
+                                            <Button class="cursor-pointer" size="sm" variant="outline"
                                                 @click="loadDescendants(category)">Descendants</Button>
-                                            <Button size="sm" variant="destructive"
-                                                @click="deleteCategory(category)">Delete</Button>
+                                            <Button class="cursor-pointer" size="sm" variant="destructive"
+                                                @click="openDeleteDialog(category)">Delete</Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -252,5 +273,25 @@ await loadCategories();
                 </div>
             </div>
         </Card>
+
+        <div v-if="isDeleteDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            @click.self="closeDeleteDialog">
+            <div role="dialog" aria-modal="true" aria-labelledby="delete-category-title"
+                class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+                <h3 id="delete-category-title" class="text-lg font-semibold">Delete category?</h3>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    This will permanently delete
+                    <span class="font-medium text-foreground">{{ categoryPendingDelete?.name }}</span>.
+                    This action cannot be undone.
+                </p>
+
+                <div class="mt-6 flex justify-end gap-2">
+                    <Button class="cursor-pointer" variant="outline" :disabled="isDeleting" @click="closeDeleteDialog">Cancel</Button>
+                    <Button class="cursor-pointer" variant="destructive" :disabled="isDeleting" @click="confirmDeleteCategory">
+                        {{ isDeleting ? "Deleting..." : "Delete" }}
+                    </Button>
+                </div>
+            </div>
+        </div>
     </section>
 </template>
