@@ -1,16 +1,11 @@
-import type { AuthResponse, RegisterRequest } from "~/types/admin";
+import type { CreateUserRequest, UserResponse } from "~/types/admin";
 
 export const adminBootstrapService = {
-  async bootstrap(payload: RegisterRequest, bootstrapKey?: string) {
+  async createAdmin(payload: CreateUserRequest) {
     const { $api } = useNuxtApp();
 
-    return await $api<AuthResponse>("/public/admin/bootstrap", {
+    return await $api<UserResponse>("/users/admins", {
       method: "POST",
-      headers: bootstrapKey
-        ? {
-            "X-Admin-Bootstrap": bootstrapKey,
-          }
-        : undefined,
       body: payload,
     });
   },

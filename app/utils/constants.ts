@@ -9,7 +9,7 @@ import {
 const menuItems = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { title: "Manage Categories", to: "/dashboard/categories", icon: Tags },
-  { title: "Admin Bootstrap", to: "/dashboard/bootstrap", icon: UserCog },
+  { title: "Manage Admin", to: "/dashboard/admin", icon: UserCog },
   {
     title: "Manage Subscriptions",
     to: "/dashboard/subscriptions",

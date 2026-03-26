@@ -76,15 +76,21 @@ export interface RegisterRequest {
   phoneNumber: string;
 }
 
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  role: UserRole;
+}
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
 }
 
 export interface CustomerResponse {
-    id: number;
-    fullName: string;
-    email: string;
-    phoneNumber: string;
-    address: string;
+  id: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  address: string;
 }
