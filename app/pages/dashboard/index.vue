@@ -10,9 +10,9 @@ const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const adminDataStore = useAdminDataStore();
 const {
-    categories,
-    tenants,
-    customers,
+    categoriesPagination,
+    tenantsPagination,
+    customersPagination,
     categoriesLoaded,
     tenantsLoaded,
     customersLoaded,
@@ -21,9 +21,9 @@ const {
     isCustomersLoading,
 } = storeToRefs(adminDataStore);
 
-const categoryCount = computed(() => categories.value.length);
-const tenantCount = computed(() => tenants.value.length);
-const customerCount = computed(() => customers.value.length);
+const categoryCount = computed(() => categoriesPagination.value.totalElements);
+const tenantCount = computed(() => tenantsPagination.value.totalElements);
+const customerCount = computed(() => customersPagination.value.totalElements);
 const isLoading = computed(() => {
     const hasAnyLoaded =
         categoriesLoaded.value || tenantsLoaded.value || customersLoaded.value;
@@ -36,15 +36,15 @@ const isLoading = computed(() => {
 const loadDashboardMetrics = async () => {
     try {
         await Promise.all([
-            adminDataStore.ensureCategories(),
-            adminDataStore.ensureTenants(),
-            adminDataStore.ensureCustomers(),
+            adminDataStore.ensureCategories({ page: 0, size: 1 }),
+            adminDataStore.ensureTenants({ page: 0, size: 1 }),
+            adminDataStore.ensureCustomers({ page: 0, size: 1 }),
         ]);
 
         void Promise.all([
-            adminDataStore.revalidateCategories(),
-            adminDataStore.revalidateTenants(),
-            adminDataStore.revalidateCustomers(),
+            adminDataStore.revalidateCategories({ page: 0, size: 1 }),
+            adminDataStore.revalidateTenants({ page: 0, size: 1 }),
+            adminDataStore.revalidateCustomers({ page: 0, size: 1 }),
         ]);
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });

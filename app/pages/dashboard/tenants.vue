@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import type { CreateTenantRequest, UserResponse } from "~/types/admin";
+import type { CreateTenantRequest } from "~/types/admin";
 import { tenantService } from "~/services/tenant.service";
 import { useAdminDataStore } from "~/stores/adminData.store";
 import { tenantSchema } from "~/validations/admin.schema";
@@ -12,10 +12,20 @@ definePageMeta({
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const adminDataStore = useAdminDataStore();
-const { tenants, isTenantsLoading, tenantsLoaded } = storeToRefs(adminDataStore);
+const { tenants, isTenantsLoading, tenantsLoaded, tenantsPagination } =
+    storeToRefs(adminDataStore);
 
 const isSubmitting = ref(false);
 const isInitialLoading = computed(() => isTenantsLoading.value && !tenantsLoaded.value);
+const pageSummary = computed(() => {
+    if (!tenantsPagination.value.totalElements) {
+        return "No tenants";
+    }
+
+    const start = tenantsPagination.value.page * tenantsPagination.value.size + 1;
+    const end = start + tenantsPagination.value.numberOfElements - 1;
+    return `Showing ${start}-${end} of ${tenantsPagination.value.totalElements}`;
+});
 
 const form = reactive<CreateTenantRequest>({
     email: "",
@@ -25,12 +35,19 @@ const form = reactive<CreateTenantRequest>({
     phoneNumber: "",
 });
 
-const loadTenants = async (force = false) => {
+const loadTenants = async (page = tenantsPagination.value.page, force = false) => {
     try {
-        await adminDataStore.ensureTenants(force);
+        await adminDataStore.ensureTenants({
+            force,
+            page,
+            size: tenantsPagination.value.size,
+        });
 
-        if (tenantsLoaded.value) {
-            void adminDataStore.revalidateTenants();
+        if (!force && tenantsLoaded.value) {
+            void adminDataStore.revalidateTenants({
+                page,
+                size: tenantsPagination.value.size,
+            });
         }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
@@ -46,8 +63,8 @@ const submitTenant = async () => {
 
     isSubmitting.value = true;
     try {
-        const created = await tenantService.create(parsed.data);
-        adminDataStore.prependTenant(created);
+        await tenantService.create(parsed.data);
+        await loadTenants(0, true);
         toast.success({ message: "Tenant created successfully" });
 
         form.email = "";
@@ -62,8 +79,24 @@ const submitTenant = async () => {
     }
 };
 
+const goToPreviousPage = async () => {
+    if (!tenantsPagination.value.hasPrevious || isTenantsLoading.value) {
+        return;
+    }
+
+    await loadTenants(tenantsPagination.value.page - 1, true);
+};
+
+const goToNextPage = async () => {
+    if (!tenantsPagination.value.hasNext || isTenantsLoading.value) {
+        return;
+    }
+
+    await loadTenants(tenantsPagination.value.page + 1, true);
+};
+
 onMounted(() => {
-    loadTenants();
+    loadTenants(0);
 });
 </script>
 
@@ -117,7 +150,7 @@ onMounted(() => {
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-medium">Tenant List</h2>
-                        
+
                     </div>
 
                     <div v-if="isInitialLoading" class="text-sm text-muted-foreground">Loading tenants...</div>
@@ -147,6 +180,25 @@ onMounted(() => {
                                 </tr>
                             </tbody>
                         </table>
+
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
+                            <div class="flex items-center gap-2">
+                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                    :disabled="!tenantsPagination.hasPrevious || isTenantsLoading"
+                                    @click="goToPreviousPage">
+                                    Previous
+                                </Button>
+                                <p class="text-xs text-muted-foreground">
+                                    Page {{ tenantsPagination.page + 1 }} of
+                                    {{ Math.max(tenantsPagination.totalPages, 1) }}
+                                </p>
+                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                    :disabled="!tenantsPagination.hasNext || isTenantsLoading" @click="goToNextPage">
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </Card>

@@ -1,9 +1,27 @@
-import type { CategoryResponse, CreateCategoryRequest } from "~/types/admin";
+import {
+  DEFAULT_PAGE_SIZE,
+  normalizePaginatedList,
+} from "~/services/pagination";
+import type {
+  CategoryResponse,
+  CreateCategoryRequest,
+  ListQueryParams,
+  PaginatedApiResponse,
+} from "~/types/admin";
 
 export const categoryService = {
-  async getAll() {
+  async getAll(params: ListQueryParams = {}) {
     const { $api } = useNuxtApp();
-    return await $api<CategoryResponse[]>("/categories");
+    const page = params.page ?? 0;
+    const size = params.size ?? DEFAULT_PAGE_SIZE;
+
+    const response = await $api<
+      PaginatedApiResponse<CategoryResponse> | CategoryResponse[]
+    >("/categories", {
+      query: { page, size },
+    });
+
+    return normalizePaginatedList(response, page, size);
   },
 
   async getById(id: number) {

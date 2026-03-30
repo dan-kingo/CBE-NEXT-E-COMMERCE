@@ -14,7 +14,8 @@ const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const contextStore = useAdminContextStore();
 const adminDataStore = useAdminDataStore();
-const { categories, isCategoriesLoading, categoriesLoaded } = storeToRefs(adminDataStore);
+const { categories, isCategoriesLoading, categoriesLoaded, categoriesPagination } =
+    storeToRefs(adminDataStore);
 
 const descendants = ref<number[]>([]);
 const selectedCategory = ref<CategoryResponse | null>(null);
@@ -139,12 +140,29 @@ const isInitialLoading = computed(
     () => isCategoriesLoading.value && !categoriesLoaded.value,
 );
 
-const loadCategories = async (force = false) => {
+const pageSummary = computed(() => {
+    if (!categoriesPagination.value.totalElements) {
+        return "No categories";
+    }
+
+    const start = categoriesPagination.value.page * categoriesPagination.value.size + 1;
+    const end = start + categoriesPagination.value.numberOfElements - 1;
+    return `Showing ${start}-${end} of ${categoriesPagination.value.totalElements}`;
+});
+
+const loadCategories = async (page = categoriesPagination.value.page, force = false) => {
     try {
-        await adminDataStore.ensureCategories(force);
+        await adminDataStore.ensureCategories({
+            force,
+            page,
+            size: categoriesPagination.value.size,
+        });
 
         if (!force && categoriesLoaded.value) {
-            void adminDataStore.revalidateCategories();
+            void adminDataStore.revalidateCategories({
+                page,
+                size: categoriesPagination.value.size,
+            });
         }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
@@ -173,12 +191,12 @@ const submitCategory = async () => {
     isSubmitting.value = true;
     try {
         if (editingCategoryId.value) {
-            const updated = await categoryService.update(editingCategoryId.value, payload);
-            adminDataStore.upsertCategory(updated);
+            await categoryService.update(editingCategoryId.value, payload);
+            await loadCategories(categoriesPagination.value.page, true);
             toast.success({ message: "Category updated successfully" });
         } else {
-            const created = await categoryService.create(payload);
-            adminDataStore.upsertCategory(created);
+            await categoryService.create(payload);
+            await loadCategories(0, true);
             toast.success({ message: "Category created successfully" });
         }
 
@@ -294,7 +312,7 @@ const confirmDeleteCategory = async () => {
         const deletingId = categoryPendingDelete.value.id;
         await categoryService.remove(deletingId);
         // Backend performs cascade delete, so re-sync to reflect the true server state.
-        await loadCategories(true);
+        await loadCategories(categoriesPagination.value.page, true);
         toast.success({ message: "Category deleted" });
 
         if (selectedCategory.value?.id === deletingId) {
@@ -354,8 +372,24 @@ const loadDescendants = async (category: CategoryResponse) => {
     }
 };
 
+const goToPreviousPage = async () => {
+    if (!categoriesPagination.value.hasPrevious || isCategoriesLoading.value) {
+        return;
+    }
+
+    await loadCategories(categoriesPagination.value.page - 1, true);
+};
+
+const goToNextPage = async () => {
+    if (!categoriesPagination.value.hasNext || isCategoriesLoading.value) {
+        return;
+    }
+
+    await loadCategories(categoriesPagination.value.page + 1, true);
+};
+
 onMounted(() => {
-    loadCategories();
+    loadCategories(0);
 });
 </script>
 
@@ -499,6 +533,26 @@ onMounted(() => {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
+                            <div class="flex items-center gap-2">
+                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                    :disabled="!categoriesPagination.hasPrevious || isCategoriesLoading"
+                                    @click="goToPreviousPage">
+                                    Previous
+                                </Button>
+                                <p class="text-xs text-muted-foreground">
+                                    Page {{ categoriesPagination.page + 1 }} of
+                                    {{ Math.max(categoriesPagination.totalPages, 1) }}
+                                </p>
+                                <Button class="cursor-pointer" size="sm" variant="outline"
+                                    :disabled="!categoriesPagination.hasNext || isCategoriesLoading"
+                                    @click="goToNextPage">
+                                    Next
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
