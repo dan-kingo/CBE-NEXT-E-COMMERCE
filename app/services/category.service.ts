@@ -3,11 +3,31 @@ import {
   normalizePaginatedList,
 } from "~/services/pagination";
 import type {
+  ApiStatus,
   CategoryResponse,
   CreateCategoryRequest,
   ListQueryParams,
   PaginatedApiResponse,
 } from "~/types/admin";
+
+interface ArrayApiResponse<T> {
+  status: ApiStatus;
+  data: T;
+}
+
+const normalizeDescendantIds = (
+  response: number[] | ArrayApiResponse<number[]>,
+) => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (response && Array.isArray(response.data)) {
+    return response.data;
+  }
+
+  return [];
+};
 
 export const categoryService = {
   async getAll(params: ListQueryParams = {}) {
@@ -54,6 +74,9 @@ export const categoryService = {
 
   async getDescendantIds(id: number) {
     const { $api } = useNuxtApp();
-    return await $api<number[]>(`/categories/${id}/descendants`);
+    const response = await $api<number[] | ArrayApiResponse<number[]>>(
+      `/categories/${id}/descendants`,
+    );
+    return normalizeDescendantIds(response);
   },
 };

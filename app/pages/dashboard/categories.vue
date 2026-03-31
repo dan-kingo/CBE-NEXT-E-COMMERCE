@@ -157,13 +157,6 @@ const loadCategories = async (page = categoriesPagination.value.page, force = fa
             page,
             size: categoriesPagination.value.size,
         });
-
-        if (!force && categoriesLoaded.value) {
-            void adminDataStore.revalidateCategories({
-                page,
-                size: categoriesPagination.value.size,
-            });
-        }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
     }
@@ -191,8 +184,17 @@ const submitCategory = async () => {
     isSubmitting.value = true;
     try {
         if (editingCategoryId.value) {
-            await categoryService.update(editingCategoryId.value, payload);
-            await loadCategories(categoriesPagination.value.page, true);
+            const categoryId = editingCategoryId.value;
+            const rollback = adminDataStore.applyOptimisticCategoryUpdate(categoryId, payload);
+
+            try {
+                const updated = await categoryService.update(categoryId, payload);
+                adminDataStore.reconcileCategoryAfterMutation(updated);
+            } catch (error) {
+                rollback();
+                throw error;
+            }
+
             toast.success({ message: "Category updated successfully" });
         } else {
             await categoryService.create(payload);
@@ -310,9 +312,20 @@ const confirmDeleteCategory = async () => {
 
     try {
         const deletingId = categoryPendingDelete.value.id;
-        await categoryService.remove(deletingId);
-        // Backend performs cascade delete, so re-sync to reflect the true server state.
-        await loadCategories(categoriesPagination.value.page, true);
+        const rollback = adminDataStore.applyOptimisticCategoryRemove(deletingId);
+
+        try {
+            await categoryService.remove(deletingId);
+        } catch (error) {
+            rollback();
+            throw error;
+        }
+
+        // Keep UI responsive by updating instantly, then silently reconcile server-side cascade results.
+        void adminDataStore.revalidateCategories({
+            page: categoriesPagination.value.page,
+            size: categoriesPagination.value.size,
+        });
         toast.success({ message: "Category deleted" });
 
         if (selectedCategory.value?.id === deletingId) {
@@ -335,7 +348,8 @@ const loadDescendants = async (category: CategoryResponse) => {
     isDescendantsLoading.value = true;
 
     try {
-        descendants.value = await adminDataStore.ensureDescendants(category.id);
+        const ids = await adminDataStore.ensureDescendants(category.id);
+        descendants.value = Array.isArray(ids) ? ids : [];
         selectedCategory.value = category;
         contextStore.setSelectedCategoryId(category.id);
 
@@ -377,7 +391,7 @@ const goToPreviousPage = async () => {
         return;
     }
 
-    await loadCategories(categoriesPagination.value.page - 1, true);
+    await loadCategories(categoriesPagination.value.page - 1);
 };
 
 const goToNextPage = async () => {
@@ -385,11 +399,11 @@ const goToNextPage = async () => {
         return;
     }
 
-    await loadCategories(categoriesPagination.value.page + 1, true);
+    await loadCategories(categoriesPagination.value.page + 1);
 };
 
 onMounted(() => {
-    loadCategories(0);
+    loadCategories(categoriesLoaded.value ? categoriesPagination.value.page : 0);
 });
 </script>
 

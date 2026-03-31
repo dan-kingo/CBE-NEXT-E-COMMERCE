@@ -10,13 +10,99 @@ import type {
   CategoryResponse,
   CustomerResponse,
   ListQueryParams,
+  PaginatedListResult,
   PaginationMeta,
+  CreateCategoryRequest,
   UserResponse,
 } from "~/types/admin";
 
 interface ListLoadOptions extends ListQueryParams {
   force?: boolean;
 }
+
+interface CachedPage<T> extends PaginatedListResult<T> {
+  fetchedAt: number;
+}
+
+const getCacheKey = (page: number, size: number) => `${page}:${size}`;
+
+const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
+  ...category,
+  children: category.children.map(cloneCategory),
+});
+
+const cloneCategoryTree = (categories: CategoryResponse[]) =>
+  categories.map(cloneCategory);
+
+const updateCategoryInTree = (
+  categories: CategoryResponse[],
+  categoryId: number,
+  updater: (category: CategoryResponse) => CategoryResponse,
+) => {
+  let updated = false;
+
+  const next = categories.map((category) => {
+    let candidate = category;
+
+    if (candidate.id === categoryId) {
+      candidate = updater(candidate);
+      updated = true;
+    }
+
+    if (candidate.children.length) {
+      const childResult = updateCategoryInTree(
+        candidate.children,
+        categoryId,
+        updater,
+      );
+      if (childResult.updated) {
+        candidate = {
+          ...candidate,
+          children: childResult.categories,
+        };
+        updated = true;
+      }
+    }
+
+    return candidate;
+  });
+
+  return { categories: next, updated };
+};
+
+const removeCategoryFromTree = (
+  categories: CategoryResponse[],
+  categoryId: number,
+) => {
+  let updated = false;
+
+  const next: CategoryResponse[] = [];
+  for (const category of categories) {
+    if (category.id === categoryId) {
+      updated = true;
+      continue;
+    }
+
+    let candidate = category;
+    if (candidate.children.length) {
+      const childResult = removeCategoryFromTree(
+        candidate.children,
+        categoryId,
+      );
+      if (childResult.updated) {
+        candidate = {
+          ...candidate,
+          children: childResult.categories,
+        };
+        updated = true;
+      }
+    }
+
+    next.push(candidate);
+  }
+
+  return { categories: next, updated };
+};
 
 const normalizeListLoadOptions = (
   value: boolean | ListLoadOptions | undefined,
@@ -48,6 +134,10 @@ export const useAdminDataStore = defineStore("adminData", {
     tenantsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     customersPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
 
+    categoriesPageCache: {} as Record<string, CachedPage<CategoryResponse>>,
+    tenantsPageCache: {} as Record<string, CachedPage<UserResponse>>,
+    customersPageCache: {} as Record<string, CachedPage<CustomerResponse>>,
+
     categoriesLoaded: false,
     tenantsLoaded: false,
     customersLoaded: false,
@@ -58,19 +148,97 @@ export const useAdminDataStore = defineStore("adminData", {
   }),
 
   actions: {
+    setCategoriesFromCache(page: CachedPage<CategoryResponse>) {
+      this.categories = cloneCategoryTree(page.content);
+      this.categoriesPagination = { ...page.pagination };
+      this.categoriesLoaded = true;
+    },
+
+    setTenantsFromCache(page: CachedPage<UserResponse>) {
+      this.tenants = [...page.content];
+      this.tenantsPagination = { ...page.pagination };
+      this.tenantsLoaded = true;
+    },
+
+    setCustomersFromCache(page: CachedPage<CustomerResponse>) {
+      this.customers = [...page.content];
+      this.customersPagination = { ...page.pagination };
+      this.customersLoaded = true;
+    },
+
+    cacheCategoriesPage(result: PaginatedListResult<CategoryResponse>) {
+      this.categoriesPageCache[
+        getCacheKey(result.pagination.page, result.pagination.size)
+      ] = {
+        ...result,
+        content: cloneCategoryTree(result.content),
+        pagination: { ...result.pagination },
+        fetchedAt: Date.now(),
+      };
+    },
+
+    cacheTenantsPage(result: PaginatedListResult<UserResponse>) {
+      this.tenantsPageCache[
+        getCacheKey(result.pagination.page, result.pagination.size)
+      ] = {
+        ...result,
+        content: [...result.content],
+        pagination: { ...result.pagination },
+        fetchedAt: Date.now(),
+      };
+    },
+
+    cacheCustomersPage(result: PaginatedListResult<CustomerResponse>) {
+      this.customersPageCache[
+        getCacheKey(result.pagination.page, result.pagination.size)
+      ] = {
+        ...result,
+        content: [...result.content],
+        pagination: { ...result.pagination },
+        fetchedAt: Date.now(),
+      };
+    },
+
+    updateCategoriesAcrossCache(
+      apply: (content: CategoryResponse[]) => CategoryResponse[],
+    ) {
+      const current = apply(this.categories);
+      if (current !== this.categories) {
+        this.categories = current;
+      }
+
+      for (const key of Object.keys(this.categoriesPageCache)) {
+        const cached = this.categoriesPageCache[key];
+        const nextContent = apply(cached.content);
+        if (nextContent !== cached.content) {
+          this.categoriesPageCache[key] = {
+            ...cached,
+            content: cloneCategoryTree(nextContent),
+          };
+        }
+      }
+    },
+
     async ensureCategories(options?: boolean | ListLoadOptions) {
       const { force, page, size } = normalizeListLoadOptions(
         options,
         this.categoriesPagination,
       );
+      const cacheKey = getCacheKey(page, size);
+      const cachedPage = this.categoriesPageCache[cacheKey];
 
-      const canUseCache =
+      const canUseCurrentState =
         this.categoriesLoaded &&
         !force &&
         this.categoriesPagination.page === page &&
         this.categoriesPagination.size === size;
 
-      if (canUseCache) {
+      if (canUseCurrentState) {
+        return this.categories;
+      }
+
+      if (cachedPage && !force) {
+        this.setCategoriesFromCache(cachedPage);
         return this.categories;
       }
 
@@ -80,6 +248,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
         this.categoriesLoaded = true;
+        this.cacheCategoriesPage(result);
         return this.categories;
       } finally {
         this.isCategoriesLoading = false;
@@ -99,6 +268,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
         this.categoriesLoaded = true;
+        this.cacheCategoriesPage(result);
       } catch {
         // Background refresh is best-effort and should not interrupt UX.
       }
@@ -109,14 +279,21 @@ export const useAdminDataStore = defineStore("adminData", {
         options,
         this.tenantsPagination,
       );
+      const cacheKey = getCacheKey(page, size);
+      const cachedPage = this.tenantsPageCache[cacheKey];
 
-      const canUseCache =
+      const canUseCurrentState =
         this.tenantsLoaded &&
         !force &&
         this.tenantsPagination.page === page &&
         this.tenantsPagination.size === size;
 
-      if (canUseCache) {
+      if (canUseCurrentState) {
+        return this.tenants;
+      }
+
+      if (cachedPage && !force) {
+        this.setTenantsFromCache(cachedPage);
         return this.tenants;
       }
 
@@ -126,6 +303,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.tenants = result.content;
         this.tenantsPagination = result.pagination;
         this.tenantsLoaded = true;
+        this.cacheTenantsPage(result);
         return this.tenants;
       } finally {
         this.isTenantsLoading = false;
@@ -145,6 +323,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.tenants = result.content;
         this.tenantsPagination = result.pagination;
         this.tenantsLoaded = true;
+        this.cacheTenantsPage(result);
       } catch {
         // Background refresh is best-effort and should not interrupt UX.
       }
@@ -155,14 +334,21 @@ export const useAdminDataStore = defineStore("adminData", {
         options,
         this.customersPagination,
       );
+      const cacheKey = getCacheKey(page, size);
+      const cachedPage = this.customersPageCache[cacheKey];
 
-      const canUseCache =
+      const canUseCurrentState =
         this.customersLoaded &&
         !force &&
         this.customersPagination.page === page &&
         this.customersPagination.size === size;
 
-      if (canUseCache) {
+      if (canUseCurrentState) {
+        return this.customers;
+      }
+
+      if (cachedPage && !force) {
+        this.setCustomersFromCache(cachedPage);
         return this.customers;
       }
 
@@ -172,6 +358,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.customers = result.content;
         this.customersPagination = result.pagination;
         this.customersLoaded = true;
+        this.cacheCustomersPage(result);
         return this.customers;
       } finally {
         this.isCustomersLoading = false;
@@ -191,6 +378,7 @@ export const useAdminDataStore = defineStore("adminData", {
         this.customers = result.content;
         this.customersPagination = result.pagination;
         this.customersLoaded = true;
+        this.cacheCustomersPage(result);
       } catch {
         // Background refresh is best-effort and should not interrupt UX.
       }
@@ -228,6 +416,95 @@ export const useAdminDataStore = defineStore("adminData", {
         this.categories = [category, ...this.categories];
       }
       this.categoriesLoaded = true;
+
+      for (const key of Object.keys(this.categoriesPageCache)) {
+        const cached = this.categoriesPageCache[key];
+        const foundIndex = cached.content.findIndex(
+          (item) => item.id === category.id,
+        );
+        if (foundIndex >= 0) {
+          const nextContent = [...cached.content];
+          nextContent[foundIndex] = cloneCategory(category);
+          this.categoriesPageCache[key] = {
+            ...cached,
+            content: nextContent,
+          };
+        }
+      }
+    },
+
+    applyOptimisticCategoryUpdate(
+      categoryId: number,
+      payload: CreateCategoryRequest,
+    ) {
+      const previousCategories = cloneCategoryTree(this.categories);
+      const previousCache = Object.fromEntries(
+        Object.entries(this.categoriesPageCache).map(([key, value]) => [
+          key,
+          {
+            ...value,
+            content: cloneCategoryTree(value.content),
+            pagination: { ...value.pagination },
+          },
+        ]),
+      ) as Record<string, CachedPage<CategoryResponse>>;
+
+      this.updateCategoriesAcrossCache((content) => {
+        const result = updateCategoryInTree(
+          content,
+          categoryId,
+          (category) => ({
+            ...category,
+            name: payload.name,
+            slug: payload.slug,
+            description: payload.description ?? "",
+            parentId:
+              payload.parentId === undefined
+                ? category.parentId
+                : payload.parentId,
+            updatedAt: new Date().toISOString(),
+          }),
+        );
+        return result.updated ? result.categories : content;
+      });
+
+      return () => {
+        this.categories = previousCategories;
+        this.categoriesPageCache = previousCache;
+      };
+    },
+
+    applyOptimisticCategoryRemove(categoryId: number) {
+      const previousCategories = cloneCategoryTree(this.categories);
+      const previousCache = Object.fromEntries(
+        Object.entries(this.categoriesPageCache).map(([key, value]) => [
+          key,
+          {
+            ...value,
+            content: cloneCategoryTree(value.content),
+            pagination: { ...value.pagination },
+          },
+        ]),
+      ) as Record<string, CachedPage<CategoryResponse>>;
+
+      this.updateCategoriesAcrossCache((content) => {
+        const result = removeCategoryFromTree(content, categoryId);
+        return result.updated ? result.categories : content;
+      });
+
+      return () => {
+        this.categories = previousCategories;
+        this.categoriesPageCache = previousCache;
+      };
+    },
+
+    reconcileCategoryAfterMutation(category: CategoryResponse) {
+      this.updateCategoriesAcrossCache((content) => {
+        const result = updateCategoryInTree(content, category.id, () =>
+          cloneCategory(category),
+        );
+        return result.updated ? result.categories : content;
+      });
     },
 
     removeCategory(categoryId: number) {
@@ -235,23 +512,80 @@ export const useAdminDataStore = defineStore("adminData", {
         (item) => item.id !== categoryId,
       );
       delete this.descendantsByCategoryId[String(categoryId)];
+
+      for (const key of Object.keys(this.categoriesPageCache)) {
+        const cached = this.categoriesPageCache[key];
+        this.categoriesPageCache[key] = {
+          ...cached,
+          content: cached.content.filter((item) => item.id !== categoryId),
+        };
+      }
     },
 
     prependTenant(tenant: UserResponse) {
-      this.tenants = [tenant, ...this.tenants];
+      const nextTenants = [tenant, ...this.tenants].slice(
+        0,
+        this.tenantsPagination.size,
+      );
+      this.tenants = nextTenants;
+      this.tenantsPagination = {
+        ...this.tenantsPagination,
+        totalElements: this.tenantsPagination.totalElements + 1,
+        numberOfElements: nextTenants.length,
+        totalPages: Math.max(
+          1,
+          Math.ceil(
+            (this.tenantsPagination.totalElements + 1) /
+              Math.max(this.tenantsPagination.size, 1),
+          ),
+        ),
+        empty: false,
+      };
       this.tenantsLoaded = true;
+
+      const cacheKey = getCacheKey(
+        this.tenantsPagination.page,
+        this.tenantsPagination.size,
+      );
+      const cached = this.tenantsPageCache[cacheKey];
+      if (cached) {
+        const nextContent = [tenant, ...cached.content].slice(
+          0,
+          cached.pagination.size,
+        );
+        const nextTotalElements = cached.pagination.totalElements + 1;
+        this.tenantsPageCache[cacheKey] = {
+          ...cached,
+          content: nextContent,
+          pagination: {
+            ...cached.pagination,
+            totalElements: nextTotalElements,
+            numberOfElements: nextContent.length,
+            totalPages: Math.max(
+              1,
+              Math.ceil(
+                nextTotalElements / Math.max(cached.pagination.size, 1),
+              ),
+            ),
+            empty: false,
+          },
+        };
+      }
     },
 
     invalidateCategories() {
       this.categoriesLoaded = false;
+      this.categoriesPageCache = {};
     },
 
     invalidateTenants() {
       this.tenantsLoaded = false;
+      this.tenantsPageCache = {};
     },
 
     invalidateCustomers() {
       this.customersLoaded = false;
+      this.customersPageCache = {};
     },
   },
 });

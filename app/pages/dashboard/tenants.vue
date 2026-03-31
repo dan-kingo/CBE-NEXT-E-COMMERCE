@@ -42,13 +42,6 @@ const loadTenants = async (page = tenantsPagination.value.page, force = false) =
             page,
             size: tenantsPagination.value.size,
         });
-
-        if (!force && tenantsLoaded.value) {
-            void adminDataStore.revalidateTenants({
-                page,
-                size: tenantsPagination.value.size,
-            });
-        }
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
     }
@@ -63,8 +56,14 @@ const submitTenant = async () => {
 
     isSubmitting.value = true;
     try {
-        await tenantService.create(parsed.data);
-        await loadTenants(0, true);
+        const createdTenant = await tenantService.create(parsed.data);
+
+        if (tenantsPagination.value.page === 0) {
+            adminDataStore.prependTenant(createdTenant);
+        } else {
+            adminDataStore.invalidateTenants();
+        }
+
         toast.success({ message: "Tenant created successfully" });
 
         form.email = "";
@@ -84,7 +83,7 @@ const goToPreviousPage = async () => {
         return;
     }
 
-    await loadTenants(tenantsPagination.value.page - 1, true);
+    await loadTenants(tenantsPagination.value.page - 1);
 };
 
 const goToNextPage = async () => {
@@ -92,11 +91,11 @@ const goToNextPage = async () => {
         return;
     }
 
-    await loadTenants(tenantsPagination.value.page + 1, true);
+    await loadTenants(tenantsPagination.value.page + 1);
 };
 
 onMounted(() => {
-    loadTenants(0);
+    loadTenants(tenantsLoaded.value ? tenantsPagination.value.page : 0);
 });
 </script>
 
