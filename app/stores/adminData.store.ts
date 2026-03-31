@@ -26,6 +26,20 @@ interface CachedPage<T> extends PaginatedListResult<T> {
 
 const getCacheKey = (page: number, size: number) => `${page}:${size}`;
 
+const inFlightCategoryPages = new Map<
+  string,
+  Promise<PaginatedListResult<CategoryResponse>>
+>();
+const inFlightTenantPages = new Map<
+  string,
+  Promise<PaginatedListResult<UserResponse>>
+>();
+const inFlightCustomerPages = new Map<
+  string,
+  Promise<PaginatedListResult<CustomerResponse>>
+>();
+const inFlightDescendants = new Map<number, Promise<number[]>>();
+
 const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
   ...category,
   children: category.children.map(cloneCategory),
@@ -148,6 +162,16 @@ export const useAdminDataStore = defineStore("adminData", {
   }),
 
   actions: {
+    async warmDashboardData() {
+      const size = DEFAULT_PAGE_SIZE;
+
+      await Promise.allSettled([
+        this.ensureCategories({ page: 0, size }),
+        this.ensureTenants({ page: 0, size }),
+        this.ensureCustomers({ page: 0, size }),
+      ]);
+    },
+
     setCategoriesFromCache(page: CachedPage<CategoryResponse>) {
       this.categories = cloneCategoryTree(page.content);
       this.categoriesPagination = { ...page.pagination };
@@ -209,6 +233,10 @@ export const useAdminDataStore = defineStore("adminData", {
 
       for (const key of Object.keys(this.categoriesPageCache)) {
         const cached = this.categoriesPageCache[key];
+        if (!cached) {
+          continue;
+        }
+
         const nextContent = apply(cached.content);
         if (nextContent !== cached.content) {
           this.categoriesPageCache[key] = {
@@ -226,6 +254,7 @@ export const useAdminDataStore = defineStore("adminData", {
       );
       const cacheKey = getCacheKey(page, size);
       const cachedPage = this.categoriesPageCache[cacheKey];
+      const pending = inFlightCategoryPages.get(cacheKey);
 
       const canUseCurrentState =
         this.categoriesLoaded &&
@@ -242,15 +271,27 @@ export const useAdminDataStore = defineStore("adminData", {
         return this.categories;
       }
 
+      if (pending) {
+        const result = await pending;
+        this.categories = result.content;
+        this.categoriesPagination = result.pagination;
+        this.categoriesLoaded = true;
+        this.cacheCategoriesPage(result);
+        return this.categories;
+      }
+
       this.isCategoriesLoading = true;
+      const request = categoryService.getAll({ page, size });
+      inFlightCategoryPages.set(cacheKey, request);
       try {
-        const result = await categoryService.getAll({ page, size });
+        const result = await request;
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
         this.categoriesLoaded = true;
         this.cacheCategoriesPage(result);
         return this.categories;
       } finally {
+        inFlightCategoryPages.delete(cacheKey);
         this.isCategoriesLoading = false;
       }
     },
@@ -281,6 +322,7 @@ export const useAdminDataStore = defineStore("adminData", {
       );
       const cacheKey = getCacheKey(page, size);
       const cachedPage = this.tenantsPageCache[cacheKey];
+      const pending = inFlightTenantPages.get(cacheKey);
 
       const canUseCurrentState =
         this.tenantsLoaded &&
@@ -297,15 +339,27 @@ export const useAdminDataStore = defineStore("adminData", {
         return this.tenants;
       }
 
+      if (pending) {
+        const result = await pending;
+        this.tenants = result.content;
+        this.tenantsPagination = result.pagination;
+        this.tenantsLoaded = true;
+        this.cacheTenantsPage(result);
+        return this.tenants;
+      }
+
       this.isTenantsLoading = true;
+      const request = tenantService.getAll({ page, size });
+      inFlightTenantPages.set(cacheKey, request);
       try {
-        const result = await tenantService.getAll({ page, size });
+        const result = await request;
         this.tenants = result.content;
         this.tenantsPagination = result.pagination;
         this.tenantsLoaded = true;
         this.cacheTenantsPage(result);
         return this.tenants;
       } finally {
+        inFlightTenantPages.delete(cacheKey);
         this.isTenantsLoading = false;
       }
     },
@@ -336,6 +390,7 @@ export const useAdminDataStore = defineStore("adminData", {
       );
       const cacheKey = getCacheKey(page, size);
       const cachedPage = this.customersPageCache[cacheKey];
+      const pending = inFlightCustomerPages.get(cacheKey);
 
       const canUseCurrentState =
         this.customersLoaded &&
@@ -352,15 +407,27 @@ export const useAdminDataStore = defineStore("adminData", {
         return this.customers;
       }
 
+      if (pending) {
+        const result = await pending;
+        this.customers = result.content;
+        this.customersPagination = result.pagination;
+        this.customersLoaded = true;
+        this.cacheCustomersPage(result);
+        return this.customers;
+      }
+
       this.isCustomersLoading = true;
+      const request = customerService.getAll({ page, size });
+      inFlightCustomerPages.set(cacheKey, request);
       try {
-        const result = await customerService.getAll({ page, size });
+        const result = await request;
         this.customers = result.content;
         this.customersPagination = result.pagination;
         this.customersLoaded = true;
         this.cacheCustomersPage(result);
         return this.customers;
       } finally {
+        inFlightCustomerPages.delete(cacheKey);
         this.isCustomersLoading = false;
       }
     },
@@ -391,9 +458,21 @@ export const useAdminDataStore = defineStore("adminData", {
         return cached;
       }
 
-      const descendants = await categoryService.getDescendantIds(categoryId);
-      this.descendantsByCategoryId[cacheKey] = descendants;
-      return descendants;
+      const pending = inFlightDescendants.get(categoryId);
+      if (pending) {
+        return await pending;
+      }
+
+      const request = categoryService.getDescendantIds(categoryId);
+      inFlightDescendants.set(categoryId, request);
+
+      try {
+        const descendants = await request;
+        this.descendantsByCategoryId[cacheKey] = descendants;
+        return descendants;
+      } finally {
+        inFlightDescendants.delete(categoryId);
+      }
     },
 
     async revalidateDescendants(categoryId: number) {
@@ -419,6 +498,10 @@ export const useAdminDataStore = defineStore("adminData", {
 
       for (const key of Object.keys(this.categoriesPageCache)) {
         const cached = this.categoriesPageCache[key];
+        if (!cached) {
+          continue;
+        }
+
         const foundIndex = cached.content.findIndex(
           (item) => item.id === category.id,
         );
@@ -515,6 +598,10 @@ export const useAdminDataStore = defineStore("adminData", {
 
       for (const key of Object.keys(this.categoriesPageCache)) {
         const cached = this.categoriesPageCache[key];
+        if (!cached) {
+          continue;
+        }
+
         this.categoriesPageCache[key] = {
           ...cached,
           content: cached.content.filter((item) => item.id !== categoryId),

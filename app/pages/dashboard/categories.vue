@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import type { CategoryResponse, CreateCategoryRequest } from "~/types/admin";
+import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { categoryService } from "~/services/category.service";
 import { useAdminDataStore } from "~/stores/adminData.store";
 import { useAdminContextStore } from "~/stores/adminContext.store";
@@ -151,11 +152,15 @@ const pageSummary = computed(() => {
 });
 
 const loadCategories = async (page = categoriesPagination.value.page, force = false) => {
+    const size = categoriesPagination.value.size > 1
+        ? categoriesPagination.value.size
+        : DEFAULT_PAGE_SIZE;
+
     try {
         await adminDataStore.ensureCategories({
             force,
             page,
-            size: categoriesPagination.value.size,
+            size,
         });
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
@@ -324,7 +329,9 @@ const confirmDeleteCategory = async () => {
         // Keep UI responsive by updating instantly, then silently reconcile server-side cascade results.
         void adminDataStore.revalidateCategories({
             page: categoriesPagination.value.page,
-            size: categoriesPagination.value.size,
+            size: categoriesPagination.value.size > 1
+                ? categoriesPagination.value.size
+                : DEFAULT_PAGE_SIZE,
         });
         toast.success({ message: "Category deleted" });
 

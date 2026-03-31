@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import type { CreateTenantRequest } from "~/types/admin";
+import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { tenantService } from "~/services/tenant.service";
 import { useAdminDataStore } from "~/stores/adminData.store";
 import { tenantSchema } from "~/validations/admin.schema";
@@ -36,11 +37,15 @@ const form = reactive<CreateTenantRequest>({
 });
 
 const loadTenants = async (page = tenantsPagination.value.page, force = false) => {
+    const size = tenantsPagination.value.size > 1
+        ? tenantsPagination.value.size
+        : DEFAULT_PAGE_SIZE;
+
     try {
         await adminDataStore.ensureTenants({
             force,
             page,
-            size: tenantsPagination.value.size,
+            size,
         });
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });

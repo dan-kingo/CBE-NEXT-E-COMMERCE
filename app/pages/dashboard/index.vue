@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useAdminDataStore } from "~/stores/adminData.store";
 
 definePageMeta({
@@ -36,15 +37,15 @@ const isLoading = computed(() => {
 const loadDashboardMetrics = async () => {
     try {
         await Promise.all([
-            adminDataStore.ensureCategories({ page: 0, size: 1 }),
-            adminDataStore.ensureTenants({ page: 0, size: 1 }),
-            adminDataStore.ensureCustomers({ page: 0, size: 1 }),
+            adminDataStore.ensureCategories({ page: 0, size: DEFAULT_PAGE_SIZE }),
+            adminDataStore.ensureTenants({ page: 0, size: DEFAULT_PAGE_SIZE }),
+            adminDataStore.ensureCustomers({ page: 0, size: DEFAULT_PAGE_SIZE }),
         ]);
 
         void Promise.all([
-            adminDataStore.revalidateCategories({ page: 0, size: 1 }),
-            adminDataStore.revalidateTenants({ page: 0, size: 1 }),
-            adminDataStore.revalidateCustomers({ page: 0, size: 1 }),
+            adminDataStore.revalidateCategories({ page: 0, size: DEFAULT_PAGE_SIZE }),
+            adminDataStore.revalidateTenants({ page: 0, size: DEFAULT_PAGE_SIZE }),
+            adminDataStore.revalidateCustomers({ page: 0, size: DEFAULT_PAGE_SIZE }),
         ]);
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
