@@ -35,7 +35,7 @@ export const useAuthStore = defineStore("auth", {
       this.isLoading = true;
       try {
         const res: any = await authService.login(payload);
-        const session = res?.data ?? res;
+        const session = res?.token;
 
         if (!session?.accessToken || !session?.refreshToken) {
           throw new Error("Login response does not include a session.");
