@@ -37,7 +37,7 @@ export const categoryService = {
 
     const response = await $api<
       PaginatedApiResponse<CategoryResponse> | CategoryResponse[]
-    >("/categories", {
+    >("/public/categories", {
       query: { page, size },
     });
 
@@ -46,7 +46,7 @@ export const categoryService = {
 
   async getById(id: number) {
     const { $api } = useNuxtApp();
-    return await $api<CategoryResponse>(`/categories/${id}`);
+    return await $api<CategoryResponse>(`/public/categories/${id}`);
   },
 
   async create(payload: CreateCategoryRequest) {

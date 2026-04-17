@@ -54,7 +54,7 @@ const form = reactive<CreateTemplateRequest>({
 
 const loadTenantOptions = async () => {
     try {
-        await adminDataStore.ensureTenants({ page: 0, size: 100 });
+        await adminDataStore.ensureTenants({ page: 0, size: 10 });
     } catch {
         // Tenant load failure is non-blocking for initial render.
     }
