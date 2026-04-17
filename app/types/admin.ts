@@ -133,3 +133,21 @@ export interface CustomerResponse {
   phoneNumber: string;
   address: string | null;
 }
+
+export interface CreateTemplateRequest {
+  templateName: string;
+  previewImageUrl: string;
+}
+
+export interface TemplatePatchRequest {
+  templateName?: string;
+  previewImageUrl?: string;
+}
+
+export interface TemplateResponse {
+  id: number;
+  templateName: string;
+  previewImageUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}

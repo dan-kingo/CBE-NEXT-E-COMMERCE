@@ -6,6 +6,7 @@ import {
 import { categoryService } from "~/services/category.service";
 import { customerService } from "~/services/customer.service";
 import { tenantService } from "~/services/tenant.service";
+import { templateService } from "~/services/template.service";
 import type {
   CategoryResponse,
   CustomerResponse,
@@ -13,6 +14,7 @@ import type {
   PaginatedListResult,
   PaginationMeta,
   CreateCategoryRequest,
+  TemplateResponse,
   UserResponse,
 } from "~/types/admin";
 
@@ -20,11 +22,17 @@ interface ListLoadOptions extends ListQueryParams {
   force?: boolean;
 }
 
+interface TemplateListLoadOptions extends ListLoadOptions {
+  tenantId?: string;
+}
+
 interface CachedPage<T> extends PaginatedListResult<T> {
   fetchedAt: number;
 }
 
 const getCacheKey = (page: number, size: number) => `${page}:${size}`;
+const getTemplateCacheKey = (tenantId: string, page: number, size: number) =>
+  `${tenantId}:${page}:${size}`;
 
 const inFlightCategoryPages = new Map<
   string,
@@ -37,6 +45,10 @@ const inFlightTenantPages = new Map<
 const inFlightCustomerPages = new Map<
   string,
   Promise<PaginatedListResult<CustomerResponse>>
+>();
+const inFlightTemplatePages = new Map<
+  string,
+  Promise<PaginatedListResult<TemplateResponse>>
 >();
 const inFlightDescendants = new Map<number, Promise<number[]>>();
 
@@ -137,28 +149,52 @@ const normalizeListLoadOptions = (
   };
 };
 
+const normalizeTemplateListLoadOptions = (
+  value: boolean | TemplateListLoadOptions | undefined,
+  currentPagination: PaginationMeta,
+  currentTenantId: string,
+) => {
+  const normalized = normalizeListLoadOptions(value, currentPagination);
+  const tenantId =
+    typeof value === "object" && value?.tenantId !== undefined
+      ? value.tenantId
+      : currentTenantId;
+
+  return {
+    ...normalized,
+    tenantId,
+  };
+};
+
 export const useAdminDataStore = defineStore("adminData", {
   state: () => ({
     categories: [] as CategoryResponse[],
     tenants: [] as UserResponse[],
     customers: [] as CustomerResponse[],
+    templates: [] as TemplateResponse[],
     descendantsByCategoryId: {} as Record<string, number[]>,
 
     categoriesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     tenantsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     customersPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
+    templatesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
 
     categoriesPageCache: {} as Record<string, CachedPage<CategoryResponse>>,
     tenantsPageCache: {} as Record<string, CachedPage<UserResponse>>,
     customersPageCache: {} as Record<string, CachedPage<CustomerResponse>>,
+    templatesPageCache: {} as Record<string, CachedPage<TemplateResponse>>,
 
     categoriesLoaded: false,
     tenantsLoaded: false,
     customersLoaded: false,
+    templatesLoaded: false,
 
     isCategoriesLoading: false,
     isTenantsLoading: false,
     isCustomersLoading: false,
+    isTemplatesLoading: false,
+
+    currentTemplateTenantId: "",
   }),
 
   actions: {
@@ -190,6 +226,16 @@ export const useAdminDataStore = defineStore("adminData", {
       this.customersLoaded = true;
     },
 
+    setTemplatesFromCache(
+      page: CachedPage<TemplateResponse>,
+      tenantId: string,
+    ) {
+      this.templates = [...page.content];
+      this.templatesPagination = { ...page.pagination };
+      this.templatesLoaded = true;
+      this.currentTemplateTenantId = tenantId;
+    },
+
     cacheCategoriesPage(result: PaginatedListResult<CategoryResponse>) {
       this.categoriesPageCache[
         getCacheKey(result.pagination.page, result.pagination.size)
@@ -215,6 +261,24 @@ export const useAdminDataStore = defineStore("adminData", {
     cacheCustomersPage(result: PaginatedListResult<CustomerResponse>) {
       this.customersPageCache[
         getCacheKey(result.pagination.page, result.pagination.size)
+      ] = {
+        ...result,
+        content: [...result.content],
+        pagination: { ...result.pagination },
+        fetchedAt: Date.now(),
+      };
+    },
+
+    cacheTemplatesPage(
+      result: PaginatedListResult<TemplateResponse>,
+      tenantId: string,
+    ) {
+      this.templatesPageCache[
+        getTemplateCacheKey(
+          tenantId,
+          result.pagination.page,
+          result.pagination.size,
+        )
       ] = {
         ...result,
         content: [...result.content],
@@ -451,6 +515,91 @@ export const useAdminDataStore = defineStore("adminData", {
       }
     },
 
+    async ensureTemplates(options?: boolean | TemplateListLoadOptions) {
+      const { force, page, size, tenantId } = normalizeTemplateListLoadOptions(
+        options,
+        this.templatesPagination,
+        this.currentTemplateTenantId,
+      );
+      const resolvedTenantId = tenantId || "";
+      const cacheKey = getTemplateCacheKey(resolvedTenantId, page, size);
+      const cachedPage = this.templatesPageCache[cacheKey];
+      const pending = inFlightTemplatePages.get(cacheKey);
+
+      const canUseCurrentState =
+        this.templatesLoaded &&
+        !force &&
+        this.templatesPagination.page === page &&
+        this.templatesPagination.size === size &&
+        this.currentTemplateTenantId === resolvedTenantId;
+
+      if (canUseCurrentState) {
+        return this.templates;
+      }
+
+      if (cachedPage && !force) {
+        this.setTemplatesFromCache(cachedPage, resolvedTenantId);
+        return this.templates;
+      }
+
+      if (pending) {
+        const result = await pending;
+        this.templates = result.content;
+        this.templatesPagination = result.pagination;
+        this.templatesLoaded = true;
+        this.currentTemplateTenantId = resolvedTenantId;
+        this.cacheTemplatesPage(result, resolvedTenantId);
+        return this.templates;
+      }
+
+      this.isTemplatesLoading = true;
+      const request = templateService.getAll({
+        page,
+        size,
+        tenantId: resolvedTenantId || undefined,
+      });
+      inFlightTemplatePages.set(cacheKey, request);
+      try {
+        const result = await request;
+        this.templates = result.content;
+        this.templatesPagination = result.pagination;
+        this.templatesLoaded = true;
+        this.currentTemplateTenantId = resolvedTenantId;
+        this.cacheTemplatesPage(result, resolvedTenantId);
+        return this.templates;
+      } finally {
+        inFlightTemplatePages.delete(cacheKey);
+        this.isTemplatesLoading = false;
+      }
+    },
+
+    async revalidateTemplates(
+      options?: ListQueryParams & { tenantId?: string },
+    ) {
+      if (this.isTemplatesLoading) {
+        return;
+      }
+
+      const page = options?.page ?? this.templatesPagination.page;
+      const size = options?.size ?? this.templatesPagination.size;
+      const tenantId = options?.tenantId ?? this.currentTemplateTenantId;
+
+      try {
+        const result = await templateService.getAll({
+          page,
+          size,
+          tenantId: tenantId || undefined,
+        });
+        this.templates = result.content;
+        this.templatesPagination = result.pagination;
+        this.templatesLoaded = true;
+        this.currentTemplateTenantId = tenantId;
+        this.cacheTemplatesPage(result, tenantId);
+      } catch {
+        // Background refresh is best-effort and should not interrupt UX.
+      }
+    },
+
     async ensureDescendants(categoryId: number, force = false) {
       const cacheKey = String(categoryId);
       const cached = this.descendantsByCategoryId[cacheKey];
@@ -673,6 +822,12 @@ export const useAdminDataStore = defineStore("adminData", {
     invalidateCustomers() {
       this.customersLoaded = false;
       this.customersPageCache = {};
+    },
+
+    invalidateTemplates() {
+      this.templatesLoaded = false;
+      this.templatesPageCache = {};
+      this.currentTemplateTenantId = "";
     },
   },
 });

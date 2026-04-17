@@ -31,7 +31,16 @@ export const subscriptionPlanSchema = z.object({
     .min(1, "Duration must be at least 1 day"),
 });
 
+export const templateSchema = z.object({
+  templateName: z.string().min(1, "Template name is required").max(120),
+  previewImageUrl: z
+    .string()
+    .min(1, "Preview image URL is required")
+    .url("Preview image URL must be a valid URL"),
+});
+
 export type CategoryInput = z.infer<typeof categorySchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type BootstrapInput = z.infer<typeof bootstrapSchema>;
 export type SubscriptionPlanInput = z.infer<typeof subscriptionPlanSchema>;
+export type TemplateInput = z.infer<typeof templateSchema>;
