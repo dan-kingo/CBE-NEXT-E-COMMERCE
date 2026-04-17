@@ -171,8 +171,7 @@ onMounted(() => {
                             <tbody>
                                 <tr v-for="tenant in tenants" :key="tenant.id" class="border-b">
                                     <td class="py-2">{{ tenant.email }}</td>
-                                    <td class="py-2">{{ [tenant.tenantFirstName,
-                                    tenant.tenantLastName].filter(Boolean).join(" ") || "-" }}</td>
+                                    <td class="py-2">{{ [tenant.fullName].filter(Boolean).join(" ") || "-" }}</td>
                                     <td class="py-2">
                                         <Badge :variant="tenant.enabled ? 'outline' : 'destructive'">
                                             {{ tenant.enabled ? "Enabled" : "Disabled" }}

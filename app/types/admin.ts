@@ -42,9 +42,10 @@ export interface UserResponse {
   customerAddress?: string;
   customerPhoneNumber?: string;
   tenantProfileId?: number;
-  tenantFirstName?: string;
-  tenantLastName?: string;
-  tenantPhoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  fullName?: string;
 }
 
 export interface CreatePlanRequest {
