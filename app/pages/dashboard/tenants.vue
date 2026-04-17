@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import type { CreateTenantRequest, UserResponse } from "~/types/admin";
+import type { CreateTenantRequest } from "~/types/admin";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { tenantService } from "~/services/tenant.service";
 import { useAdminDataStore } from "~/stores/adminData.store";
@@ -36,17 +36,6 @@ const form = reactive<CreateTenantRequest>({
     phoneNumber: "",
 });
 
-const toDisplayTenant = (tenant: UserResponse): UserResponse => {
-    const normalizedFullName = tenant.fullName?.trim()
-        || [tenant.firstName, tenant.lastName].filter(Boolean).join(" ").trim()
-        || undefined;
-
-    return {
-        ...tenant,
-        fullName: normalizedFullName,
-    };
-};
-
 const loadTenants = async (page = tenantsPagination.value.page, force = false) => {
     const size = tenantsPagination.value.size > 1
         ? tenantsPagination.value.size
@@ -72,13 +61,8 @@ const submitTenant = async () => {
 
     isSubmitting.value = true;
     try {
-        const createdTenant = await tenantService.create(parsed.data);
-
-        if (tenantsPagination.value.page === 0) {
-            adminDataStore.prependTenant(toDisplayTenant(createdTenant));
-        } else {
-            adminDataStore.invalidateTenants();
-        }
+        await tenantService.create(parsed.data);
+        await loadTenants(tenantsPagination.value.page, true);
 
         toast.success({ message: "Tenant created successfully" });
 
