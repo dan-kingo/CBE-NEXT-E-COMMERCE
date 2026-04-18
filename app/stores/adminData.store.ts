@@ -50,7 +50,6 @@ const inFlightTemplatePages = new Map<
   string,
   Promise<PaginatedListResult<TemplateResponse>>
 >();
-const inFlightDescendants = new Map<number, Promise<number[]>>();
 
 const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
   ...category,
@@ -59,6 +58,27 @@ const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
 
 const cloneCategoryTree = (categories: CategoryResponse[]) =>
   categories.map(cloneCategory);
+
+const buildDescendantsIndex = (categories: CategoryResponse[]) => {
+  const index: Record<string, number[]> = {};
+
+  const visit = (category: CategoryResponse): number[] => {
+    const descendants: number[] = [];
+    for (const child of category.children) {
+      descendants.push(child.id);
+      descendants.push(...visit(child));
+    }
+
+    index[String(category.id)] = descendants;
+    return descendants;
+  };
+
+  for (const category of categories) {
+    visit(category);
+  }
+
+  return index;
+};
 
 const updateCategoryInTree = (
   categories: CategoryResponse[],
@@ -211,6 +231,7 @@ export const useAdminDataStore = defineStore("adminData", {
     setCategoriesFromCache(page: CachedPage<CategoryResponse>) {
       this.categories = cloneCategoryTree(page.content);
       this.categoriesPagination = { ...page.pagination };
+      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
       this.categoriesLoaded = true;
     },
 
@@ -339,6 +360,7 @@ export const useAdminDataStore = defineStore("adminData", {
         const result = await pending;
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
+        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
         this.categoriesLoaded = true;
         this.cacheCategoriesPage(result);
         return this.categories;
@@ -351,6 +373,7 @@ export const useAdminDataStore = defineStore("adminData", {
         const result = await request;
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
+        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
         this.categoriesLoaded = true;
         this.cacheCategoriesPage(result);
         return this.categories;
@@ -372,6 +395,7 @@ export const useAdminDataStore = defineStore("adminData", {
         const result = await categoryService.getAll({ page, size });
         this.categories = result.content;
         this.categoriesPagination = result.pagination;
+        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
         this.categoriesLoaded = true;
         this.cacheCategoriesPage(result);
       } catch {
@@ -600,40 +624,6 @@ export const useAdminDataStore = defineStore("adminData", {
       }
     },
 
-    async ensureDescendants(categoryId: number, force = false) {
-      const cacheKey = String(categoryId);
-      const cached = this.descendantsByCategoryId[cacheKey];
-      if (cached && !force) {
-        return cached;
-      }
-
-      const pending = inFlightDescendants.get(categoryId);
-      if (pending) {
-        return await pending;
-      }
-
-      const request = categoryService.getDescendantIds(categoryId);
-      inFlightDescendants.set(categoryId, request);
-
-      try {
-        const descendants = await request;
-        this.descendantsByCategoryId[cacheKey] = descendants;
-        return descendants;
-      } finally {
-        inFlightDescendants.delete(categoryId);
-      }
-    },
-
-    async revalidateDescendants(categoryId: number) {
-      const cacheKey = String(categoryId);
-      try {
-        const descendants = await categoryService.getDescendantIds(categoryId);
-        this.descendantsByCategoryId[cacheKey] = descendants;
-      } catch {
-        // Background refresh is best-effort and should not interrupt UX.
-      }
-    },
-
     upsertCategory(category: CategoryResponse) {
       const index = this.categories.findIndex(
         (item) => item.id === category.id,
@@ -643,6 +633,7 @@ export const useAdminDataStore = defineStore("adminData", {
       } else {
         this.categories = [category, ...this.categories];
       }
+      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
       this.categoriesLoaded = true;
 
       for (const key of Object.keys(this.categoriesPageCache)) {
@@ -703,6 +694,7 @@ export const useAdminDataStore = defineStore("adminData", {
       return () => {
         this.categories = previousCategories;
         this.categoriesPageCache = previousCache;
+        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
       };
     },
 
@@ -727,6 +719,7 @@ export const useAdminDataStore = defineStore("adminData", {
       return () => {
         this.categories = previousCategories;
         this.categoriesPageCache = previousCache;
+        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
       };
     },
 
@@ -737,13 +730,14 @@ export const useAdminDataStore = defineStore("adminData", {
         );
         return result.updated ? result.categories : content;
       });
+      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
     },
 
     removeCategory(categoryId: number) {
       this.categories = this.categories.filter(
         (item) => item.id !== categoryId,
       );
-      delete this.descendantsByCategoryId[String(categoryId)];
+      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
 
       for (const key of Object.keys(this.categoriesPageCache)) {
         const cached = this.categoriesPageCache[key];

@@ -15,34 +15,21 @@ const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const contextStore = useAdminContextStore();
 const adminDataStore = useAdminDataStore();
-const { categories, isCategoriesLoading, categoriesLoaded, categoriesPagination } =
+const {
+    categories,
+    isCategoriesLoading,
+    categoriesLoaded,
+    categoriesPagination,
+} =
     storeToRefs(adminDataStore);
 
-const descendants = ref<number[]>([]);
-const selectedCategory = ref<CategoryResponse | null>(null);
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
-const isDescendantsLoading = ref(false);
 const editingCategoryId = ref<number | null>(null);
 const editFormRef = ref<HTMLElement | null>(null);
 const isDeleteDialogOpen = ref(false);
-const isDescendantsDialogOpen = ref(false);
 const categoryPendingDelete = ref<CategoryResponse | null>(null);
-const descendantsDialogCategory = ref<CategoryResponse | null>(null);
-const descendantsTree = ref<DescendantTreeNode[]>([]);
-
-interface DescendantTreeNode {
-    id: number;
-    name: string;
-    children: DescendantTreeNode[];
-}
-
-interface DescendantTreeRow {
-    id: number;
-    name: string;
-    depth: number;
-    hasChildren: boolean;
-}
+const expandedCategoryIds = ref(new Set<number>());
 
 const form = reactive({
     name: "",
@@ -65,6 +52,95 @@ const flattenTreeRows = (items: CategoryResponse[], depth = 0): CategoryTreeRow[
 
 const categoryTreeRows = computed(() => flattenTreeRows(categories.value));
 
+interface CategoryListRow {
+    category: CategoryResponse;
+    depth: number;
+    hasChildren: boolean;
+    isExpanded: boolean;
+}
+
+const normalizedChildren = (category: CategoryResponse) => {
+    return Array.isArray(category.children) ? category.children : [];
+};
+
+const getChildrenCount = (category: CategoryResponse) => {
+    return normalizedChildren(category).length;
+};
+
+const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0);
+
+const filteredRootCategories = computed(() => {
+    const roots = categories.value.filter((item) => item.parentId === null);
+    const q = searchQuery.value.trim().toLowerCase();
+    if (!q) {
+        return roots;
+    }
+
+    const filterTree = (nodes: CategoryResponse[]): CategoryResponse[] => {
+        return nodes.flatMap((node) => {
+            const children = filterTree(normalizedChildren(node));
+            const matches =
+                node.name.toLowerCase().includes(q) ||
+                node.slug.toLowerCase().includes(q);
+
+            if (!matches && !children.length) {
+                return [];
+            }
+
+            return [{
+                ...node,
+                children: matches ? normalizedChildren(node) : children,
+            }];
+        });
+    };
+
+    return filterTree(roots);
+});
+
+const isExpanded = (categoryId: number) => {
+    return expandedCategoryIds.value.has(categoryId);
+};
+
+const toggleCategory = (categoryId: number) => {
+    if (hasSearchQuery.value) {
+        return;
+    }
+
+    const next = new Set(expandedCategoryIds.value);
+    if (next.has(categoryId)) {
+        next.delete(categoryId);
+    } else {
+        next.add(categoryId);
+    }
+    expandedCategoryIds.value = next;
+};
+
+const visibleCategoryRows = computed<CategoryListRow[]>(() => {
+    const rows: CategoryListRow[] = [];
+
+    const visit = (nodes: CategoryResponse[], depth: number) => {
+        for (const category of nodes) {
+            const children = normalizedChildren(category);
+            const hasChildren = children.length > 0;
+            const expanded = hasSearchQuery.value ? true : isExpanded(category.id);
+
+            rows.push({
+                category,
+                depth,
+                hasChildren,
+                isExpanded: expanded,
+            });
+
+            if (hasChildren && expanded) {
+                visit(children, depth + 1);
+            }
+        }
+    };
+
+    visit(filteredRootCategories.value, 0);
+    return rows;
+});
+
 const allCategoryOptions = computed(() => {
     const options = categoryTreeRows.value;
     if (editingCategoryId.value) {
@@ -74,42 +150,13 @@ const allCategoryOptions = computed(() => {
     return options;
 });
 
-const categoryNameById = computed(() => {
-    const map = new Map<number, string>();
-    for (const row of categoryTreeRows.value) {
-        map.set(row.category.id, row.category.name);
-    }
-    return map;
-});
-
 const getTreeLabel = (name: string, depth: number) => {
     return `${"\u00A0\u00A0".repeat(depth)}${depth ? "- " : ""}${name}`;
-};
-
-const getParentName = (parentId: number | null) => {
-    if (!parentId) {
-        return "-";
-    }
-
-    return categoryNameById.value.get(parentId) || `Unknown (#${parentId})`;
 };
 
 const searchQuery = computed({
     get: () => contextStore.categorySearchQuery,
     set: (value: string) => contextStore.setCategorySearchQuery(value),
-});
-
-const filteredCategories = computed(() => {
-    if (!searchQuery.value) {
-        return categoryTreeRows.value;
-    }
-
-    const q = searchQuery.value.toLowerCase();
-    return categoryTreeRows.value.filter(
-        (row) =>
-            row.category.name.toLowerCase().includes(q) ||
-            row.category.slug.toLowerCase().includes(q),
-    );
 });
 
 const resetForm = () => {
@@ -225,88 +272,6 @@ const closeDeleteDialog = () => {
     categoryPendingDelete.value = null;
 };
 
-const closeDescendantsDialog = () => {
-    isDescendantsDialogOpen.value = false;
-    descendantsDialogCategory.value = null;
-    descendantsTree.value = [];
-};
-
-const buildDescendantsTree = (
-    descendantIds: number[],
-    rootCategoryId: number,
-    rootCategoryName: string,
-): DescendantTreeNode[] => {
-    const idsSet = new Set(descendantIds);
-    const allRows = categoryTreeRows.value;
-    const rowById = new Map(allRows.map((row) => [row.category.id, row.category]));
-
-    const nodesById = new Map<number, DescendantTreeNode>();
-    for (const id of descendantIds) {
-        const category = rowById.get(id);
-        nodesById.set(id, {
-            id,
-            name: category?.name || `Unknown (#${id})`,
-            children: [],
-        });
-    }
-
-    const roots: DescendantTreeNode[] = [];
-    for (const id of descendantIds) {
-        const node = nodesById.get(id);
-        if (!node) {
-            continue;
-        }
-
-        const category = rowById.get(id);
-        const parentId = category?.parentId ?? null;
-
-        if (parentId && idsSet.has(parentId)) {
-            const parentNode = nodesById.get(parentId);
-            if (parentNode) {
-                parentNode.children.push(node);
-                continue;
-            }
-        }
-
-        roots.push(node);
-    }
-
-    const rootNodeFromDescendants = nodesById.get(rootCategoryId);
-    if (rootNodeFromDescendants) {
-        return [rootNodeFromDescendants];
-    }
-
-    return [
-        {
-            id: rootCategoryId,
-            name: rootCategoryName,
-            children: roots,
-        },
-    ];
-
-};
-
-const descendantsTreeRows = computed<DescendantTreeRow[]>(() => {
-    const rows: DescendantTreeRow[] = [];
-
-    const visit = (nodes: DescendantTreeNode[], depth: number) => {
-        for (const node of nodes) {
-            rows.push({
-                id: node.id,
-                name: node.name,
-                depth,
-                hasChildren: node.children.length > 0,
-            });
-            if (node.children.length) {
-                visit(node.children, depth + 1);
-            }
-        }
-    };
-
-    visit(descendantsTree.value, 0);
-
-    return rows;
-});
 
 const confirmDeleteCategory = async () => {
     if (!categoryPendingDelete.value) {
@@ -335,61 +300,11 @@ const confirmDeleteCategory = async () => {
         });
         toast.success({ message: "Category deleted" });
 
-        if (selectedCategory.value?.id === deletingId) {
-            selectedCategory.value = null;
-            descendants.value = [];
-            contextStore.setSelectedCategoryId(null);
-        }
-
         closeDeleteDialog();
     } catch (error) {
         toast.error({ message: getMessageFromUnknown(error) });
     } finally {
         isDeleting.value = false;
-    }
-};
-
-const loadDescendants = async (category: CategoryResponse) => {
-    isDescendantsDialogOpen.value = true;
-    descendantsDialogCategory.value = category;
-    isDescendantsLoading.value = true;
-
-    try {
-        const ids = await adminDataStore.ensureDescendants(category.id);
-        descendants.value = Array.isArray(ids) ? ids : [];
-        selectedCategory.value = category;
-        contextStore.setSelectedCategoryId(category.id);
-
-        const resolvedNames = await Promise.all(
-            descendants.value.map(async (id) => {
-                const fromCache = categoryNameById.value.get(id);
-                if (fromCache) {
-                    return;
-                }
-
-                try {
-                    const found = await categoryService.getById(id);
-                    adminDataStore.upsertCategory(found);
-                } catch {
-                    // Ignore single-node hydrate failures; fallback labels are handled later.
-                }
-            }),
-        );
-        void resolvedNames;
-
-        descendantsTree.value = buildDescendantsTree(
-            descendants.value,
-            category.id,
-            category.name,
-        );
-
-        // Keep UX instant with cache, then silently refresh this subtree.
-        void adminDataStore.revalidateDescendants(category.id);
-    } catch (error) {
-        toast.error({ message: getMessageFromUnknown(error) });
-        closeDescendantsDialog();
-    } finally {
-        isDescendantsLoading.value = false;
     }
 };
 
@@ -480,13 +395,25 @@ onMounted(() => {
 
                     <div v-else>
                         <div class="space-y-3 md:hidden">
-                            <div v-for="row in filteredCategories" :key="`mobile-${row.category.id}`"
+                            <div v-for="row in visibleCategoryRows" :key="`mobile-${row.category.id}`"
                                 class="rounded-lg border p-3 space-y-3">
                                 <div>
                                     <p class="text-xs text-muted-foreground">Category</p>
                                     <p class="font-medium" :style="{ paddingLeft: `${row.depth * 12}px` }">
-                                        <span v-if="row.depth" class="mr-1 text-muted-foreground">-</span>{{
-                                            row.category.name }}
+                                        <button v-if="row.hasChildren" type="button"
+                                            class="inline-flex items-center gap-1 text-left"
+                                            @click="toggleCategory(row.category.id)">
+                                            <Icon
+                                                :name="row.isExpanded ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+                                                class="size-4 text-muted-foreground" />
+                                            <Icon :name="row.isExpanded ? 'lucide:folder-open' : 'lucide:folder'"
+                                                class="size-4 text-muted-foreground" />
+                                            {{ row.category.name }}
+                                        </button>
+                                        <span v-else class="inline-flex items-center gap-1">
+                                            <Icon name="lucide:file" class="size-4 text-muted-foreground" />
+                                            {{ row.category.name }}
+                                        </span>
                                     </p>
                                 </div>
 
@@ -496,22 +423,20 @@ onMounted(() => {
                                         <p>{{ row.category.slug }}</p>
                                     </div>
                                     <div>
-                                        <p class="text-xs text-muted-foreground">Parent</p>
-                                        <p>{{ getParentName(row.category.parentId) }}</p>
+                                        <p class="text-xs text-muted-foreground">Children</p>
+                                        <p>{{ getChildrenCount(row.category) }}</p>
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-3 gap-2">
+                                <div class="grid grid-cols-2 gap-2">
                                     <Button class="cursor-pointer w-full" size="sm" variant="outline"
                                         @click="startEdit(row.category)">Edit</Button>
-                                    <Button class="cursor-pointer w-full" size="sm" variant="outline"
-                                        @click="loadDescendants(row.category)">Descendants</Button>
                                     <Button class="cursor-pointer w-full" size="sm" variant="destructive"
                                         @click="openDeleteDialog(row.category)">Delete</Button>
                                 </div>
                             </div>
 
-                            <p v-if="!filteredCategories.length" class="py-4 text-center text-muted-foreground">No
+                            <p v-if="!visibleCategoryRows.length" class="py-4 text-center text-muted-foreground">No
                                 categories found.</p>
                         </div>
 
@@ -521,33 +446,42 @@ onMounted(() => {
                                     <tr class="border-b text-left">
                                         <th class="py-2">Name</th>
                                         <th class="py-2">Slug</th>
-                                        <th class="py-2">Parent</th>
+                                        <th class="py-2">Children</th>
                                         <th class="py-2">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="row in filteredCategories" :key="row.category.id"
+                                    <tr v-for="row in visibleCategoryRows" :key="row.category.id"
                                         class="border-b align-top">
                                         <td class="py-2 font-medium">
-                                            <span :style="{ paddingLeft: `${row.depth * 16}px` }" class="inline-block">
-                                                <span v-if="row.depth" class="mr-1 text-muted-foreground">-</span>
+                                            <div :style="{ paddingLeft: `${row.depth * 16}px` }"
+                                                class="inline-flex items-center gap-1">
+                                                <button v-if="row.hasChildren" type="button"
+                                                    class="inline-flex items-center gap-1 text-left"
+                                                    @click="toggleCategory(row.category.id)">
+                                                    <Icon
+                                                        :name="row.isExpanded ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+                                                        class="size-4 text-muted-foreground" />
+                                                    <Icon
+                                                        :name="row.isExpanded ? 'lucide:folder-open' : 'lucide:folder'"
+                                                        class="size-4 text-muted-foreground" />
+                                                </button>
+                                                <Icon v-else name="lucide:file" class="size-4 text-muted-foreground" />
                                                 {{ row.category.name }}
-                                            </span>
+                                            </div>
                                         </td>
                                         <td class="py-2 text-muted-foreground">{{ row.category.slug }}</td>
-                                        <td class="py-2">{{ getParentName(row.category.parentId) }}</td>
+                                        <td class="py-2">{{ getChildrenCount(row.category) }}</td>
                                         <td class="py-2">
                                             <div class="flex flex-wrap gap-2">
                                                 <Button class="cursor-pointer" size="sm" variant="outline"
                                                     @click="startEdit(row.category)">Edit</Button>
-                                                <Button class="cursor-pointer" size="sm" variant="outline"
-                                                    @click="loadDescendants(row.category)">Descendants</Button>
                                                 <Button class="cursor-pointer" size="sm" variant="destructive"
                                                     @click="openDeleteDialog(row.category)">Delete</Button>
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr v-if="!filteredCategories.length">
+                                    <tr v-if="!visibleCategoryRows.length">
                                         <td colspan="4" class="py-4 text-center text-muted-foreground">No categories
                                             found.
                                         </td>
@@ -578,36 +512,6 @@ onMounted(() => {
                     </div>
                 </div>
             </Card>
-        </div>
-
-        <div v-if="isDescendantsDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-            @click.self="closeDescendantsDialog">
-            <div role="dialog" aria-modal="true" aria-labelledby="descendants-title"
-                class="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
-                <h3 id="descendants-title" class="text-lg font-semibold">
-                    Descendants of {{ descendantsDialogCategory?.name }}
-                </h3>
-
-                <div class="mt-3">
-                    <p v-if="isDescendantsLoading" class="text-sm text-muted-foreground">Loading descendants...</p>
-
-                    <ul v-else-if="descendantsTreeRows.length" class="space-y-1 text-sm">
-                        <li v-for="row in descendantsTreeRows" :key="row.id">
-                            <div class="flex items-center gap-2" :style="{ paddingLeft: `${row.depth * 20}px` }">
-                                <Icon :name="row.hasChildren ? 'lucide:folder-open' : 'lucide:file'"
-                                    class="size-4 text-muted-foreground" />
-                                <span :class="row.depth === 0 ? 'font-semibold' : ''">{{ row.name }}</span>
-                            </div>
-                        </li>
-                    </ul>
-
-                    <p v-else class="text-sm text-muted-foreground">No descendants found for this category.</p>
-                </div>
-
-                <div class="mt-6 flex justify-end">
-                    <Button class="cursor-pointer" variant="outline" @click="closeDescendantsDialog">Close</Button>
-                </div>
-            </div>
         </div>
 
         <div v-if="isDeleteDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
