@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  MessageSquare,
   Tags,
   UserCog,
   CreditCard,
@@ -17,6 +18,7 @@ const menuItems = [
   },
   { title: "Manage Tenants", to: "/dashboard/tenants", icon: Building2 },
   { title: "Manage Templates", to: "/dashboard/templates", icon: Tags },
+  { title: "Manage Reviews", to: "/dashboard/reviews", icon: MessageSquare },
 ];
 
 export { menuItems };

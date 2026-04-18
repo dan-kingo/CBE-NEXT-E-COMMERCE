@@ -61,8 +61,14 @@ const submitTenant = async () => {
 
     isSubmitting.value = true;
     try {
-        await tenantService.create(parsed.data);
-        await loadTenants(tenantsPagination.value.page, true);
+        const createdTenant = await tenantService.create(parsed.data);
+        adminDataStore.prependTenant(createdTenant);
+        void adminDataStore.revalidateTenants({
+            page: tenantsPagination.value.page,
+            size: tenantsPagination.value.size > 1
+                ? tenantsPagination.value.size
+                : DEFAULT_PAGE_SIZE,
+        });
 
         toast.success({ message: "Tenant created successfully" });
 

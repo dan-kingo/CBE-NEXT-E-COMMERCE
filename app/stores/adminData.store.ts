@@ -5,15 +5,20 @@ import {
 } from "~/services/pagination";
 import { categoryService } from "~/services/category.service";
 import { customerService } from "~/services/customer.service";
+import { reviewService } from "~/services/review.service";
 import { tenantService } from "~/services/tenant.service";
 import { templateService } from "~/services/template.service";
 import type {
+  AdminReviewDecisionRequest,
   CategoryResponse,
   CustomerResponse,
   ListQueryParams,
   PaginatedListResult,
   PaginationMeta,
   CreateCategoryRequest,
+  ReviewListQueryParams,
+  ReviewResponse,
+  ReviewSummaryResponse,
   TemplateResponse,
   UserResponse,
 } from "~/types/admin";
@@ -26,13 +31,35 @@ interface TemplateListLoadOptions extends ListLoadOptions {
   tenantId?: string;
 }
 
+interface ReviewListLoadOptions extends ListLoadOptions {
+  tenantId?: string;
+  storeId?: number;
+  productId?: number;
+  moderationStatus?: ReviewListQueryParams["moderationStatus"];
+  visibilityStatus?: ReviewListQueryParams["visibilityStatus"];
+}
+
 interface CachedPage<T> extends PaginatedListResult<T> {
   fetchedAt: number;
+}
+
+interface ReviewCachedPage extends CachedPage<ReviewResponse> {
+  summary: ReviewSummaryResponse;
 }
 
 const getCacheKey = (page: number, size: number) => `${page}:${size}`;
 const getTemplateCacheKey = (tenantId: string, page: number, size: number) =>
   `${tenantId}:${page}:${size}`;
+const getReviewFilterKey = (filters: ReviewListQueryParams) =>
+  JSON.stringify({
+    tenantId: filters.tenantId ?? "",
+    storeId: filters.storeId ?? null,
+    productId: filters.productId ?? null,
+    moderationStatus: filters.moderationStatus ?? "",
+    visibilityStatus: filters.visibilityStatus ?? "",
+  });
+const getReviewCacheKey = (filterKey: string, page: number, size: number) =>
+  `${filterKey}:${page}:${size}`;
 
 const inFlightCategoryPages = new Map<
   string,
@@ -49,6 +76,13 @@ const inFlightCustomerPages = new Map<
 const inFlightTemplatePages = new Map<
   string,
   Promise<PaginatedListResult<TemplateResponse>>
+>();
+const inFlightReviewPages = new Map<
+  string,
+  Promise<{
+    list: PaginatedListResult<ReviewResponse>;
+    summary: ReviewSummaryResponse;
+  }>
 >();
 
 const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
@@ -186,35 +220,73 @@ const normalizeTemplateListLoadOptions = (
   };
 };
 
+const normalizeReviewListLoadOptions = (
+  value: boolean | ReviewListLoadOptions | undefined,
+  currentPagination: PaginationMeta,
+) => {
+  const normalized = normalizeListLoadOptions(value, currentPagination);
+
+  if (typeof value === "boolean" || !value) {
+    return {
+      ...normalized,
+      tenantId: undefined,
+      storeId: undefined,
+      productId: undefined,
+      moderationStatus: undefined,
+      visibilityStatus: undefined,
+    };
+  }
+
+  return {
+    ...normalized,
+    tenantId: value.tenantId,
+    storeId: value.storeId,
+    productId: value.productId,
+    moderationStatus: value.moderationStatus,
+    visibilityStatus: value.visibilityStatus,
+  };
+};
+
 export const useAdminDataStore = defineStore("adminData", {
   state: () => ({
     categories: [] as CategoryResponse[],
     tenants: [] as UserResponse[],
     customers: [] as CustomerResponse[],
     templates: [] as TemplateResponse[],
+    reviews: [] as ReviewResponse[],
+    reviewsSummary: {
+      averageRating: 0,
+      totalPublishedReviews: 0,
+      ratingBreakdown: {},
+    } as ReviewSummaryResponse,
     descendantsByCategoryId: {} as Record<string, number[]>,
 
     categoriesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     tenantsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     customersPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     templatesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
+    reviewsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
 
     categoriesPageCache: {} as Record<string, CachedPage<CategoryResponse>>,
     tenantsPageCache: {} as Record<string, CachedPage<UserResponse>>,
     customersPageCache: {} as Record<string, CachedPage<CustomerResponse>>,
     templatesPageCache: {} as Record<string, CachedPage<TemplateResponse>>,
+    reviewsPageCache: {} as Record<string, ReviewCachedPage>,
 
     categoriesLoaded: false,
     tenantsLoaded: false,
     customersLoaded: false,
     templatesLoaded: false,
+    reviewsLoaded: false,
 
     isCategoriesLoading: false,
     isTenantsLoading: false,
     isCustomersLoading: false,
     isTemplatesLoading: false,
+    isReviewsLoading: false,
 
     currentTemplateTenantId: "",
+    currentReviewFilterKey: "",
   }),
 
   actions: {
@@ -255,6 +327,18 @@ export const useAdminDataStore = defineStore("adminData", {
       this.templatesPagination = { ...page.pagination };
       this.templatesLoaded = true;
       this.currentTemplateTenantId = tenantId;
+    },
+
+    setReviewsFromCache(page: ReviewCachedPage, filterKey: string) {
+      this.reviews = [...page.content];
+      this.reviewsPagination = { ...page.pagination };
+      this.reviewsSummary = {
+        averageRating: page.summary.averageRating,
+        totalPublishedReviews: page.summary.totalPublishedReviews,
+        ratingBreakdown: { ...page.summary.ratingBreakdown },
+      };
+      this.reviewsLoaded = true;
+      this.currentReviewFilterKey = filterKey;
     },
 
     cacheCategoriesPage(result: PaginatedListResult<CategoryResponse>) {
@@ -304,6 +388,32 @@ export const useAdminDataStore = defineStore("adminData", {
         ...result,
         content: [...result.content],
         pagination: { ...result.pagination },
+        fetchedAt: Date.now(),
+      };
+    },
+
+    cacheReviewsPage(
+      result: {
+        list: PaginatedListResult<ReviewResponse>;
+        summary: ReviewSummaryResponse;
+      },
+      filterKey: string,
+    ) {
+      this.reviewsPageCache[
+        getReviewCacheKey(
+          filterKey,
+          result.list.pagination.page,
+          result.list.pagination.size,
+        )
+      ] = {
+        ...result.list,
+        content: [...result.list.content],
+        pagination: { ...result.list.pagination },
+        summary: {
+          averageRating: result.summary.averageRating,
+          totalPublishedReviews: result.summary.totalPublishedReviews,
+          ratingBreakdown: { ...result.summary.ratingBreakdown },
+        },
         fetchedAt: Date.now(),
       };
     },
@@ -624,6 +734,147 @@ export const useAdminDataStore = defineStore("adminData", {
       }
     },
 
+    async ensureReviews(options?: boolean | ReviewListLoadOptions) {
+      const {
+        force,
+        page,
+        size,
+        tenantId,
+        storeId,
+        productId,
+        moderationStatus,
+        visibilityStatus,
+      } = normalizeReviewListLoadOptions(options, this.reviewsPagination);
+
+      const filters: ReviewListQueryParams = {
+        tenantId,
+        storeId,
+        productId,
+        moderationStatus,
+        visibilityStatus,
+      };
+      const filterKey = getReviewFilterKey(filters);
+      const cacheKey = getReviewCacheKey(filterKey, page, size);
+      const cachedPage = this.reviewsPageCache[cacheKey];
+      const pending = inFlightReviewPages.get(cacheKey);
+
+      const canUseCurrentState =
+        this.reviewsLoaded &&
+        !force &&
+        this.reviewsPagination.page === page &&
+        this.reviewsPagination.size === size &&
+        this.currentReviewFilterKey === filterKey;
+
+      if (canUseCurrentState) {
+        return this.reviews;
+      }
+
+      if (cachedPage && !force) {
+        this.setReviewsFromCache(cachedPage, filterKey);
+        return this.reviews;
+      }
+
+      if (pending) {
+        const result = await pending;
+        this.reviews = result.list.content;
+        this.reviewsPagination = result.list.pagination;
+        this.reviewsSummary = result.summary;
+        this.reviewsLoaded = true;
+        this.currentReviewFilterKey = filterKey;
+        this.cacheReviewsPage(result, filterKey);
+        return this.reviews;
+      }
+
+      this.isReviewsLoading = true;
+      const request = reviewService.getAll({
+        ...filters,
+        page,
+        size,
+      });
+      inFlightReviewPages.set(cacheKey, request);
+
+      try {
+        const result = await request;
+        this.reviews = result.list.content;
+        this.reviewsPagination = result.list.pagination;
+        this.reviewsSummary = result.summary;
+        this.reviewsLoaded = true;
+        this.currentReviewFilterKey = filterKey;
+        this.cacheReviewsPage(result, filterKey);
+        return this.reviews;
+      } finally {
+        inFlightReviewPages.delete(cacheKey);
+        this.isReviewsLoading = false;
+      }
+    },
+
+    async revalidateReviews(options?: ReviewListLoadOptions) {
+      if (this.isReviewsLoading) {
+        return;
+      }
+
+      const page = options?.page ?? this.reviewsPagination.page;
+      const size = options?.size ?? this.reviewsPagination.size;
+      const filters: ReviewListQueryParams = {
+        tenantId: options?.tenantId,
+        storeId: options?.storeId,
+        productId: options?.productId,
+        moderationStatus: options?.moderationStatus,
+        visibilityStatus: options?.visibilityStatus,
+      };
+      const filterKey = getReviewFilterKey(filters);
+
+      try {
+        const result = await reviewService.getAll({
+          ...filters,
+          page,
+          size,
+        });
+        this.reviews = result.list.content;
+        this.reviewsPagination = result.list.pagination;
+        this.reviewsSummary = result.summary;
+        this.reviewsLoaded = true;
+        this.currentReviewFilterKey = filterKey;
+        this.cacheReviewsPage(result, filterKey);
+      } catch {
+        // Background refresh is best-effort and should not interrupt UX.
+      }
+    },
+
+    upsertReview(review: ReviewResponse) {
+      const index = this.reviews.findIndex((item) => item.id === review.id);
+      if (index >= 0) {
+        const next = [...this.reviews];
+        next[index] = review;
+        this.reviews = next;
+      }
+
+      for (const key of Object.keys(this.reviewsPageCache)) {
+        const cached = this.reviewsPageCache[key];
+        if (!cached) {
+          continue;
+        }
+
+        const cachedIndex = cached.content.findIndex(
+          (item) => item.id === review.id,
+        );
+        if (cachedIndex >= 0) {
+          const nextContent = [...cached.content];
+          nextContent[cachedIndex] = review;
+          this.reviewsPageCache[key] = {
+            ...cached,
+            content: nextContent,
+          };
+        }
+      }
+    },
+
+    async decideReview(reviewId: number, payload: AdminReviewDecisionRequest) {
+      const updated = await reviewService.decide(reviewId, payload);
+      this.upsertReview(updated);
+      return updated;
+    },
+
     upsertCategory(category: CategoryResponse) {
       const index = this.categories.findIndex(
         (item) => item.id === category.id,
@@ -822,6 +1073,12 @@ export const useAdminDataStore = defineStore("adminData", {
       this.templatesLoaded = false;
       this.templatesPageCache = {};
       this.currentTemplateTenantId = "";
+    },
+
+    invalidateReviews() {
+      this.reviewsLoaded = false;
+      this.reviewsPageCache = {};
+      this.currentReviewFilterKey = "";
     },
   },
 });
