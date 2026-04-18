@@ -27,9 +27,7 @@ interface ListLoadOptions extends ListQueryParams {
   force?: boolean;
 }
 
-interface TemplateListLoadOptions extends ListLoadOptions {
-  tenantId?: string;
-}
+interface TemplateListLoadOptions extends ListLoadOptions {}
 
 interface ReviewListLoadOptions extends ListLoadOptions {
   tenantId?: string;
@@ -48,8 +46,7 @@ interface ReviewCachedPage extends CachedPage<ReviewResponse> {
 }
 
 const getCacheKey = (page: number, size: number) => `${page}:${size}`;
-const getTemplateCacheKey = (tenantId: string, page: number, size: number) =>
-  `${tenantId}:${page}:${size}`;
+const getTemplateCacheKey = (page: number, size: number) => `${page}:${size}`;
 const getReviewFilterKey = (filters: ReviewListQueryParams) =>
   JSON.stringify({
     tenantId: filters.tenantId ?? "",
@@ -206,18 +203,8 @@ const normalizeListLoadOptions = (
 const normalizeTemplateListLoadOptions = (
   value: boolean | TemplateListLoadOptions | undefined,
   currentPagination: PaginationMeta,
-  currentTenantId: string,
 ) => {
-  const normalized = normalizeListLoadOptions(value, currentPagination);
-  const tenantId =
-    typeof value === "object" && value?.tenantId !== undefined
-      ? value.tenantId
-      : currentTenantId;
-
-  return {
-    ...normalized,
-    tenantId,
-  };
+  return normalizeListLoadOptions(value, currentPagination);
 };
 
 const normalizeReviewListLoadOptions = (
@@ -285,7 +272,6 @@ export const useAdminDataStore = defineStore("adminData", {
     isTemplatesLoading: false,
     isReviewsLoading: false,
 
-    currentTemplateTenantId: "",
     currentReviewFilterKey: "",
   }),
 
@@ -319,14 +305,10 @@ export const useAdminDataStore = defineStore("adminData", {
       this.customersLoaded = true;
     },
 
-    setTemplatesFromCache(
-      page: CachedPage<TemplateResponse>,
-      tenantId: string,
-    ) {
+    setTemplatesFromCache(page: CachedPage<TemplateResponse>) {
       this.templates = [...page.content];
       this.templatesPagination = { ...page.pagination };
       this.templatesLoaded = true;
-      this.currentTemplateTenantId = tenantId;
     },
 
     setReviewsFromCache(page: ReviewCachedPage, filterKey: string) {
@@ -374,16 +356,9 @@ export const useAdminDataStore = defineStore("adminData", {
       };
     },
 
-    cacheTemplatesPage(
-      result: PaginatedListResult<TemplateResponse>,
-      tenantId: string,
-    ) {
+    cacheTemplatesPage(result: PaginatedListResult<TemplateResponse>) {
       this.templatesPageCache[
-        getTemplateCacheKey(
-          tenantId,
-          result.pagination.page,
-          result.pagination.size,
-        )
+        getTemplateCacheKey(result.pagination.page, result.pagination.size)
       ] = {
         ...result,
         content: [...result.content],
@@ -650,13 +625,11 @@ export const useAdminDataStore = defineStore("adminData", {
     },
 
     async ensureTemplates(options?: boolean | TemplateListLoadOptions) {
-      const { force, page, size, tenantId } = normalizeTemplateListLoadOptions(
+      const { force, page, size } = normalizeTemplateListLoadOptions(
         options,
         this.templatesPagination,
-        this.currentTemplateTenantId,
       );
-      const resolvedTenantId = tenantId || "";
-      const cacheKey = getTemplateCacheKey(resolvedTenantId, page, size);
+      const cacheKey = getTemplateCacheKey(page, size);
       const cachedPage = this.templatesPageCache[cacheKey];
       const pending = inFlightTemplatePages.get(cacheKey);
 
@@ -664,15 +637,14 @@ export const useAdminDataStore = defineStore("adminData", {
         this.templatesLoaded &&
         !force &&
         this.templatesPagination.page === page &&
-        this.templatesPagination.size === size &&
-        this.currentTemplateTenantId === resolvedTenantId;
+        this.templatesPagination.size === size;
 
       if (canUseCurrentState) {
         return this.templates;
       }
 
       if (cachedPage && !force) {
-        this.setTemplatesFromCache(cachedPage, resolvedTenantId);
+        this.setTemplatesFromCache(cachedPage);
         return this.templates;
       }
 
@@ -681,25 +653,19 @@ export const useAdminDataStore = defineStore("adminData", {
         this.templates = result.content;
         this.templatesPagination = result.pagination;
         this.templatesLoaded = true;
-        this.currentTemplateTenantId = resolvedTenantId;
-        this.cacheTemplatesPage(result, resolvedTenantId);
+        this.cacheTemplatesPage(result);
         return this.templates;
       }
 
       this.isTemplatesLoading = true;
-      const request = templateService.getAll({
-        page,
-        size,
-        tenantId: resolvedTenantId || undefined,
-      });
+      const request = templateService.getAll({ page, size });
       inFlightTemplatePages.set(cacheKey, request);
       try {
         const result = await request;
         this.templates = result.content;
         this.templatesPagination = result.pagination;
         this.templatesLoaded = true;
-        this.currentTemplateTenantId = resolvedTenantId;
-        this.cacheTemplatesPage(result, resolvedTenantId);
+        this.cacheTemplatesPage(result);
         return this.templates;
       } finally {
         inFlightTemplatePages.delete(cacheKey);
@@ -707,28 +673,20 @@ export const useAdminDataStore = defineStore("adminData", {
       }
     },
 
-    async revalidateTemplates(
-      options?: ListQueryParams & { tenantId?: string },
-    ) {
+    async revalidateTemplates(options?: ListQueryParams) {
       if (this.isTemplatesLoading) {
         return;
       }
 
       const page = options?.page ?? this.templatesPagination.page;
       const size = options?.size ?? this.templatesPagination.size;
-      const tenantId = options?.tenantId ?? this.currentTemplateTenantId;
 
       try {
-        const result = await templateService.getAll({
-          page,
-          size,
-          tenantId: tenantId || undefined,
-        });
+        const result = await templateService.getAll({ page, size });
         this.templates = result.content;
         this.templatesPagination = result.pagination;
         this.templatesLoaded = true;
-        this.currentTemplateTenantId = tenantId;
-        this.cacheTemplatesPage(result, tenantId);
+        this.cacheTemplatesPage(result);
       } catch {
         // Background refresh is best-effort and should not interrupt UX.
       }
@@ -1072,7 +1030,6 @@ export const useAdminDataStore = defineStore("adminData", {
     invalidateTemplates() {
       this.templatesLoaded = false;
       this.templatesPageCache = {};
-      this.currentTemplateTenantId = "";
     },
 
     invalidateReviews() {

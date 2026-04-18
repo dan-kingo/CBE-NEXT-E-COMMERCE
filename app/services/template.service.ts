@@ -10,9 +10,7 @@ import type {
   TemplateResponse,
 } from "~/types/admin";
 
-interface TemplateListParams extends ListQueryParams {
-  tenantId?: string;
-}
+interface TemplateListParams extends ListQueryParams {}
 
 const tenantHeader = (tenantId?: string) => {
   if (!tenantId) {
@@ -43,7 +41,6 @@ export const templateService = {
       PaginatedApiResponse<TemplateResponse> | TemplateResponse[]
     >("/templates", {
       query: { page, size },
-      headers: tenantHeader(params.tenantId),
     });
 
     return normalizePaginatedList(response, page, size);
