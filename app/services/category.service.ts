@@ -10,23 +10,43 @@ import type {
   PaginatedApiResponse,
 } from "~/types/admin";
 
-interface ArrayApiResponse<T> {
+interface ApiResponse<T> {
   status: ApiStatus;
   data: T;
 }
 
-const normalizeDescendantIds = (
-  response: number[] | ArrayApiResponse<number[]>,
+const isApiResponse = <T>(value: unknown): value is ApiResponse<T> => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return "data" in record;
+};
+
+const normalizeCategoryResponse = (
+  response: CategoryResponse | ApiResponse<CategoryResponse>,
 ) => {
-  if (Array.isArray(response)) {
-    return response;
-  }
+  return isApiResponse<CategoryResponse>(response) ? response.data : response;
+};
 
-  if (response && Array.isArray(response.data)) {
-    return response.data;
-  }
+const collectDescendantIds = (category: CategoryResponse) => {
+  const ids: number[] = [];
+  const visit = (nodes: CategoryResponse[] | null | undefined) => {
+    if (!Array.isArray(nodes)) {
+      return;
+    }
 
-  return [];
+    for (const node of nodes) {
+      ids.push(node.id);
+      if (Array.isArray(node.children) && node.children.length) {
+        visit(node.children);
+      }
+    }
+  };
+
+  visit(category.children);
+  return ids;
 };
 
 export const categoryService = {
@@ -46,23 +66,32 @@ export const categoryService = {
 
   async getById(id: number) {
     const { $api } = useNuxtApp();
-    return await $api<CategoryResponse>(`/public/categories/${id}`);
+    const response = await $api<
+      CategoryResponse | ApiResponse<CategoryResponse>
+    >(`/public/categories/${id}`);
+    return normalizeCategoryResponse(response);
   },
 
   async create(payload: CreateCategoryRequest) {
     const { $api } = useNuxtApp();
-    return await $api<CategoryResponse>("/categories", {
+    const response = await $api<
+      CategoryResponse | ApiResponse<CategoryResponse>
+    >("/categories", {
       method: "POST",
       body: payload,
     });
+    return normalizeCategoryResponse(response);
   },
 
   async update(id: number, payload: CreateCategoryRequest) {
     const { $api } = useNuxtApp();
-    return await $api<CategoryResponse>(`/categories/${id}`, {
+    const response = await $api<
+      CategoryResponse | ApiResponse<CategoryResponse>
+    >(`/categories/${id}`, {
       method: "PUT",
       body: payload,
     });
+    return normalizeCategoryResponse(response);
   },
 
   async remove(id: number) {
@@ -73,10 +102,7 @@ export const categoryService = {
   },
 
   async getDescendantIds(id: number) {
-    const { $api } = useNuxtApp();
-    const response = await $api<number[] | ArrayApiResponse<number[]>>(
-      `/categories/${id}/descendants`,
-    );
-    return normalizeDescendantIds(response);
+    const category = await categoryService.getById(id);
+    return collectDescendantIds(category);
   },
 };
