@@ -35,7 +35,7 @@ export const templateSchema = z.object({
   templateName: z.string().min(1, "Template name is required").max(120),
   previewImageUrl: z
     .string()
-    .min(1, "Preview image URL is required")
+    .min(1, "Preview image is required")
     .url("Preview image URL must be a valid URL"),
 });
 

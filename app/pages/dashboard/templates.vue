@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia";
 import type { CreateTemplateRequest, TemplateResponse } from "~/types/admin";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
+import { mediaService } from "~/services/media.service";
 import { templateService } from "~/services/template.service";
 import { useAdminDataStore } from "~/stores/adminData.store";
 import { templateSchema } from "~/validations/admin.schema";
@@ -18,6 +19,7 @@ const { templates, isTemplatesLoading, templatesLoaded, templatesPagination } =
 
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
+const isUploadingPreview = ref(false);
 const editingTemplateId = ref<number | null>(null);
 const editFormRef = ref<HTMLElement | null>(null);
 const isDeleteDialogOpen = ref(false);
@@ -82,6 +84,11 @@ const loadTemplates = async (
 };
 
 const submitTemplate = async () => {
+  if (isUploadingPreview.value) {
+    toast.error({ message: "Please wait for image upload to finish" });
+    return;
+  }
+
   const payload = parseFormToPayload();
   if (!payload) {
     return;
@@ -106,6 +113,26 @@ const submitTemplate = async () => {
     toast.error({ message: getMessageFromUnknown(error) });
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const uploadPreviewImage = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  isUploadingPreview.value = true;
+  try {
+    const response = await mediaService.uploadImage(file);
+    form.previewImageUrl = response.data.secureUrl;
+    toast.success({ message: "Preview image uploaded" });
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  } finally {
+    isUploadingPreview.value = false;
+    target.value = "";
   }
 };
 
@@ -192,13 +219,7 @@ onMounted(async () => {
           Create, view, update, and remove templates in one place.
         </p>
       </div>
-      <Button
-        class="cursor-pointer"
-        type="button"
-        variant="outline"
-        @click="resetForm"
-        >Reset Form</Button
-      >
+      <Button class="cursor-pointer" type="button" variant="outline" @click="resetForm">Reset Form</Button>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-3">
@@ -211,27 +232,27 @@ onMounted(async () => {
 
             <div class="space-y-2">
               <Label for="template-name">Template Name</Label>
-              <Input
-                id="template-name"
-                v-model="form.templateName"
-                placeholder="Summer Hero Banner"
-              />
+              <Input id="template-name" v-model="form.templateName" placeholder="Summer Hero Banner" />
             </div>
 
             <div class="space-y-2">
-              <Label for="template-preview">Preview Image URL</Label>
-              <Input
-                id="template-preview"
-                v-model="form.previewImageUrl"
-                placeholder="https://example.com/preview.png"
-              />
+              <Label for="template-preview-file">Preview Image</Label>
+              <input id="template-preview-file" type="file" accept="image/*"
+                class="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                :disabled="isUploadingPreview || isSubmitting" @change="uploadPreviewImage">
+              <p class="text-xs text-muted-foreground">
+                {{
+                  isUploadingPreview
+                    ? "Uploading image..."
+                    : form.previewImageUrl
+                      ? "Image uploaded and linked to this template"
+                      : "Upload an image file to set template preview"
+                }}
+              </p>
             </div>
 
-            <Button
-              class="w-full cursor-pointer"
-              :disabled="isSubmitting"
-              @click="submitTemplate"
-            >
+            <Button class="w-full cursor-pointer" :disabled="isSubmitting || isUploadingPreview"
+              @click="submitTemplate">
               {{
                 isSubmitting
                   ? "Saving..."
@@ -256,11 +277,7 @@ onMounted(async () => {
 
           <div v-else>
             <div class="space-y-3 md:hidden">
-              <div
-                v-for="template in templates"
-                :key="`mobile-${template.id}`"
-                class="rounded-lg border p-3 space-y-3"
-              >
+              <div v-for="template in templates" :key="`mobile-${template.id}`" class="rounded-lg border p-3 space-y-3">
                 <div>
                   <p class="text-xs text-muted-foreground">Name</p>
                   <p class="font-medium">{{ template.templateName }}</p>
@@ -269,12 +286,8 @@ onMounted(async () => {
                 <div class="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p class="text-xs text-muted-foreground">Preview</p>
-                    <a
-                      :href="template.previewImageUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-brand hover:underline"
-                    >
+                    <a :href="template.previewImageUrl" target="_blank" rel="noopener noreferrer"
+                      class="text-brand hover:underline">
                       View preview
                     </a>
                   </div>
@@ -285,31 +298,18 @@ onMounted(async () => {
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                  <Button
-                    class="cursor-pointer w-full"
-                    size="sm"
-                    variant="outline"
-                    :disabled="isSubmitting || isDeleting"
-                    @click="startEditing(template as TemplateResponse)"
-                  >
+                  <Button class="cursor-pointer w-full" size="sm" variant="outline"
+                    :disabled="isSubmitting || isDeleting" @click="startEditing(template as TemplateResponse)">
                     Edit
                   </Button>
-                  <Button
-                    class="cursor-pointer w-full"
-                    size="sm"
-                    variant="destructive"
-                    :disabled="isSubmitting || isDeleting"
-                    @click="openDeleteDialog(template as TemplateResponse)"
-                  >
+                  <Button class="cursor-pointer w-full" size="sm" variant="destructive"
+                    :disabled="isSubmitting || isDeleting" @click="openDeleteDialog(template as TemplateResponse)">
                     Delete
                   </Button>
                 </div>
               </div>
 
-              <p
-                v-if="!templates.length"
-                class="py-4 text-center text-muted-foreground"
-              >
+              <p v-if="!templates.length" class="py-4 text-center text-muted-foreground">
                 No templates yet.
               </p>
             </div>
@@ -325,19 +325,11 @@ onMounted(async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="template in templates"
-                    :key="template.id"
-                    class="border-b"
-                  >
+                  <tr v-for="template in templates" :key="template.id" class="border-b">
                     <td class="py-2">{{ template.templateName }}</td>
                     <td class="py-2">
-                      <a
-                        :href="template.previewImageUrl"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-brand hover:underline"
-                      >
+                      <a :href="template.previewImageUrl" target="_blank" rel="noopener noreferrer"
+                        class="text-brand hover:underline">
                         View preview
                       </a>
                     </td>
@@ -346,34 +338,21 @@ onMounted(async () => {
                     </td>
                     <td class="py-2">
                       <div class="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          class="cursor-pointer"
-                          :disabled="isSubmitting || isDeleting"
-                          @click="startEditing(template as TemplateResponse)"
-                        >
+                        <Button size="sm" variant="outline" class="cursor-pointer"
+                          :disabled="isSubmitting || isDeleting" @click="startEditing(template as TemplateResponse)">
                           Edit
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          class="cursor-pointer"
-                          :disabled="isSubmitting || isDeleting"
-                          @click="
+                        <Button size="sm" variant="destructive" class="cursor-pointer"
+                          :disabled="isSubmitting || isDeleting" @click="
                             openDeleteDialog(template as TemplateResponse)
-                          "
-                        >
+                            ">
                           Delete
                         </Button>
                       </div>
                     </td>
                   </tr>
                   <tr v-if="!templates.length">
-                    <td
-                      colspan="4"
-                      class="py-4 text-center text-muted-foreground"
-                    >
+                    <td colspan="4" class="py-4 text-center text-muted-foreground">
                       No templates yet.
                     </td>
                   </tr>
@@ -384,28 +363,16 @@ onMounted(async () => {
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
               <div class="flex items-center gap-2">
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="
-                    !templatesPagination.hasPrevious || isTemplatesLoading
-                  "
-                  @click="goToPreviousPage"
-                >
+                <Button class="cursor-pointer" size="sm" variant="outline" :disabled="!templatesPagination.hasPrevious || isTemplatesLoading
+                  " @click="goToPreviousPage">
                   Previous
                 </Button>
                 <p class="text-xs text-muted-foreground">
                   Page {{ templatesPagination.page + 1 }} of
                   {{ Math.max(templatesPagination.totalPages, 1) }}
                 </p>
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="!templatesPagination.hasNext || isTemplatesLoading"
-                  @click="goToNextPage"
-                >
+                <Button class="cursor-pointer" size="sm" variant="outline"
+                  :disabled="!templatesPagination.hasNext || isTemplatesLoading" @click="goToNextPage">
                   Next
                 </Button>
               </div>
@@ -415,17 +382,10 @@ onMounted(async () => {
       </Card>
     </div>
 
-    <div
-      v-if="isDeleteDialogOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      @click.self="closeDeleteDialog"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-template-title"
-        class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
-      >
+    <div v-if="isDeleteDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      @click.self="closeDeleteDialog">
+      <div role="dialog" aria-modal="true" aria-labelledby="delete-template-title"
+        class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
         <h3 id="delete-template-title" class="text-lg font-semibold">
           Delete template?
         </h3>
@@ -433,25 +393,14 @@ onMounted(async () => {
           This will permanently delete
           <span class="font-medium text-foreground">{{
             templatePendingDelete?.templateName
-          }}</span
-          >. This action cannot be undone.
+            }}</span>. This action cannot be undone.
         </p>
 
         <div class="mt-6 flex justify-end gap-2">
-          <Button
-            class="cursor-pointer"
-            variant="outline"
-            :disabled="isDeleting"
-            @click="closeDeleteDialog"
-          >
+          <Button class="cursor-pointer" variant="outline" :disabled="isDeleting" @click="closeDeleteDialog">
             Cancel
           </Button>
-          <Button
-            class="cursor-pointer"
-            variant="destructive"
-            :disabled="isDeleting"
-            @click="confirmDeleteTemplate"
-          >
+          <Button class="cursor-pointer" variant="destructive" :disabled="isDeleting" @click="confirmDeleteTemplate">
             {{ isDeleting ? "Deleting..." : "Delete" }}
           </Button>
         </div>

@@ -139,6 +139,21 @@ export interface CreateTemplateRequest {
   previewImageUrl: string;
 }
 
+export interface MediaFileResponse {
+  secureUrl: string;
+  resourceType: string;
+  extension: string;
+  bytes: number;
+  width: number;
+  height: number;
+  originalFilename: string;
+}
+
+export interface MediaUploadResponse {
+  status: ApiStatus;
+  data: MediaFileResponse;
+}
+
 export interface TemplatePatchRequest {
   templateName?: string;
   previewImageUrl?: string;
