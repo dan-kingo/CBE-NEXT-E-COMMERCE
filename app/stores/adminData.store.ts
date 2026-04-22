@@ -3,19 +3,16 @@ import {
   createEmptyPagination,
   DEFAULT_PAGE_SIZE,
 } from "~/services/pagination";
-import { categoryService } from "~/services/category.service";
 import { customerService } from "~/services/customer.service";
 import { reviewService } from "~/services/review.service";
 import { tenantService } from "~/services/tenant.service";
 import { templateService } from "~/services/template.service";
 import type {
   AdminReviewDecisionRequest,
-  CategoryResponse,
   CustomerResponse,
   ListQueryParams,
   PaginatedListResult,
   PaginationMeta,
-  CreateCategoryRequest,
   ReviewListQueryParams,
   ReviewResponse,
   ReviewSummaryResponse,
@@ -58,10 +55,6 @@ const getReviewFilterKey = (filters: ReviewListQueryParams) =>
 const getReviewCacheKey = (filterKey: string, page: number, size: number) =>
   `${filterKey}:${page}:${size}`;
 
-const inFlightCategoryPages = new Map<
-  string,
-  Promise<PaginatedListResult<CategoryResponse>>
->();
 const inFlightTenantPages = new Map<
   string,
   Promise<PaginatedListResult<UserResponse>>
@@ -81,105 +74,6 @@ const inFlightReviewPages = new Map<
     summary: ReviewSummaryResponse;
   }>
 >();
-
-const cloneCategory = (category: CategoryResponse): CategoryResponse => ({
-  ...category,
-  children: category.children.map(cloneCategory),
-});
-
-const cloneCategoryTree = (categories: CategoryResponse[]) =>
-  categories.map(cloneCategory);
-
-const buildDescendantsIndex = (categories: CategoryResponse[]) => {
-  const index: Record<string, number[]> = {};
-
-  const visit = (category: CategoryResponse): number[] => {
-    const descendants: number[] = [];
-    for (const child of category.children) {
-      descendants.push(child.id);
-      descendants.push(...visit(child));
-    }
-
-    index[String(category.id)] = descendants;
-    return descendants;
-  };
-
-  for (const category of categories) {
-    visit(category);
-  }
-
-  return index;
-};
-
-const updateCategoryInTree = (
-  categories: CategoryResponse[],
-  categoryId: number,
-  updater: (category: CategoryResponse) => CategoryResponse,
-) => {
-  let updated = false;
-
-  const next = categories.map((category) => {
-    let candidate = category;
-
-    if (candidate.id === categoryId) {
-      candidate = updater(candidate);
-      updated = true;
-    }
-
-    if (candidate.children.length) {
-      const childResult = updateCategoryInTree(
-        candidate.children,
-        categoryId,
-        updater,
-      );
-      if (childResult.updated) {
-        candidate = {
-          ...candidate,
-          children: childResult.categories,
-        };
-        updated = true;
-      }
-    }
-
-    return candidate;
-  });
-
-  return { categories: next, updated };
-};
-
-const removeCategoryFromTree = (
-  categories: CategoryResponse[],
-  categoryId: number,
-) => {
-  let updated = false;
-
-  const next: CategoryResponse[] = [];
-  for (const category of categories) {
-    if (category.id === categoryId) {
-      updated = true;
-      continue;
-    }
-
-    let candidate = category;
-    if (candidate.children.length) {
-      const childResult = removeCategoryFromTree(
-        candidate.children,
-        categoryId,
-      );
-      if (childResult.updated) {
-        candidate = {
-          ...candidate,
-          children: childResult.categories,
-        };
-        updated = true;
-      }
-    }
-
-    next.push(candidate);
-  }
-
-  return { categories: next, updated };
-};
 
 const normalizeListLoadOptions = (
   value: boolean | ListLoadOptions | undefined,
@@ -236,7 +130,6 @@ const normalizeReviewListLoadOptions = (
 
 export const useAdminDataStore = defineStore("adminData", {
   state: () => ({
-    categories: [] as CategoryResponse[],
     tenants: [] as UserResponse[],
     customers: [] as CustomerResponse[],
     templates: [] as TemplateResponse[],
@@ -246,27 +139,22 @@ export const useAdminDataStore = defineStore("adminData", {
       totalPublishedReviews: 0,
       ratingBreakdown: {},
     } as ReviewSummaryResponse,
-    descendantsByCategoryId: {} as Record<string, number[]>,
 
-    categoriesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     tenantsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     customersPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     templatesPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
     reviewsPagination: createEmptyPagination(0, DEFAULT_PAGE_SIZE),
 
-    categoriesPageCache: {} as Record<string, CachedPage<CategoryResponse>>,
     tenantsPageCache: {} as Record<string, CachedPage<UserResponse>>,
     customersPageCache: {} as Record<string, CachedPage<CustomerResponse>>,
     templatesPageCache: {} as Record<string, CachedPage<TemplateResponse>>,
     reviewsPageCache: {} as Record<string, ReviewCachedPage>,
 
-    categoriesLoaded: false,
     tenantsLoaded: false,
     customersLoaded: false,
     templatesLoaded: false,
     reviewsLoaded: false,
 
-    isCategoriesLoading: false,
     isTenantsLoading: false,
     isCustomersLoading: false,
     isTemplatesLoading: false,
@@ -280,17 +168,9 @@ export const useAdminDataStore = defineStore("adminData", {
       const size = DEFAULT_PAGE_SIZE;
 
       await Promise.allSettled([
-        this.ensureCategories({ page: 0, size }),
         this.ensureTenants({ page: 0, size }),
         this.ensureCustomers({ page: 0, size }),
       ]);
-    },
-
-    setCategoriesFromCache(page: CachedPage<CategoryResponse>) {
-      this.categories = cloneCategoryTree(page.content);
-      this.categoriesPagination = { ...page.pagination };
-      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-      this.categoriesLoaded = true;
     },
 
     setTenantsFromCache(page: CachedPage<UserResponse>) {
@@ -321,17 +201,6 @@ export const useAdminDataStore = defineStore("adminData", {
       };
       this.reviewsLoaded = true;
       this.currentReviewFilterKey = filterKey;
-    },
-
-    cacheCategoriesPage(result: PaginatedListResult<CategoryResponse>) {
-      this.categoriesPageCache[
-        getCacheKey(result.pagination.page, result.pagination.size)
-      ] = {
-        ...result,
-        content: cloneCategoryTree(result.content),
-        pagination: { ...result.pagination },
-        fetchedAt: Date.now(),
-      };
     },
 
     cacheTenantsPage(result: PaginatedListResult<UserResponse>) {
@@ -391,101 +260,6 @@ export const useAdminDataStore = defineStore("adminData", {
         },
         fetchedAt: Date.now(),
       };
-    },
-
-    updateCategoriesAcrossCache(
-      apply: (content: CategoryResponse[]) => CategoryResponse[],
-    ) {
-      const current = apply(this.categories);
-      if (current !== this.categories) {
-        this.categories = current;
-      }
-
-      for (const key of Object.keys(this.categoriesPageCache)) {
-        const cached = this.categoriesPageCache[key];
-        if (!cached) {
-          continue;
-        }
-
-        const nextContent = apply(cached.content);
-        if (nextContent !== cached.content) {
-          this.categoriesPageCache[key] = {
-            ...cached,
-            content: cloneCategoryTree(nextContent),
-          };
-        }
-      }
-    },
-
-    async ensureCategories(options?: boolean | ListLoadOptions) {
-      const { force, page, size } = normalizeListLoadOptions(
-        options,
-        this.categoriesPagination,
-      );
-      const cacheKey = getCacheKey(page, size);
-      const cachedPage = this.categoriesPageCache[cacheKey];
-      const pending = inFlightCategoryPages.get(cacheKey);
-
-      const canUseCurrentState =
-        this.categoriesLoaded &&
-        !force &&
-        this.categoriesPagination.page === page &&
-        this.categoriesPagination.size === size;
-
-      if (canUseCurrentState) {
-        return this.categories;
-      }
-
-      if (cachedPage && !force) {
-        this.setCategoriesFromCache(cachedPage);
-        return this.categories;
-      }
-
-      if (pending) {
-        const result = await pending;
-        this.categories = result.content;
-        this.categoriesPagination = result.pagination;
-        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-        this.categoriesLoaded = true;
-        this.cacheCategoriesPage(result);
-        return this.categories;
-      }
-
-      this.isCategoriesLoading = true;
-      const request = categoryService.getAll({ page, size });
-      inFlightCategoryPages.set(cacheKey, request);
-      try {
-        const result = await request;
-        this.categories = result.content;
-        this.categoriesPagination = result.pagination;
-        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-        this.categoriesLoaded = true;
-        this.cacheCategoriesPage(result);
-        return this.categories;
-      } finally {
-        inFlightCategoryPages.delete(cacheKey);
-        this.isCategoriesLoading = false;
-      }
-    },
-
-    async revalidateCategories(options?: ListQueryParams) {
-      if (this.isCategoriesLoading) {
-        return;
-      }
-
-      const page = options?.page ?? this.categoriesPagination.page;
-      const size = options?.size ?? this.categoriesPagination.size;
-
-      try {
-        const result = await categoryService.getAll({ page, size });
-        this.categories = result.content;
-        this.categoriesPagination = result.pagination;
-        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-        this.categoriesLoaded = true;
-        this.cacheCategoriesPage(result);
-      } catch {
-        // Background refresh is best-effort and should not interrupt UX.
-      }
     },
 
     async ensureTenants(options?: boolean | ListLoadOptions) {
@@ -833,134 +607,6 @@ export const useAdminDataStore = defineStore("adminData", {
       return updated;
     },
 
-    upsertCategory(category: CategoryResponse) {
-      const index = this.categories.findIndex(
-        (item) => item.id === category.id,
-      );
-      if (index >= 0) {
-        this.categories[index] = category;
-      } else {
-        this.categories = [category, ...this.categories];
-      }
-      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-      this.categoriesLoaded = true;
-
-      for (const key of Object.keys(this.categoriesPageCache)) {
-        const cached = this.categoriesPageCache[key];
-        if (!cached) {
-          continue;
-        }
-
-        const foundIndex = cached.content.findIndex(
-          (item) => item.id === category.id,
-        );
-        if (foundIndex >= 0) {
-          const nextContent = [...cached.content];
-          nextContent[foundIndex] = cloneCategory(category);
-          this.categoriesPageCache[key] = {
-            ...cached,
-            content: nextContent,
-          };
-        }
-      }
-    },
-
-    applyOptimisticCategoryUpdate(
-      categoryId: number,
-      payload: CreateCategoryRequest,
-    ) {
-      const previousCategories = cloneCategoryTree(this.categories);
-      const previousCache = Object.fromEntries(
-        Object.entries(this.categoriesPageCache).map(([key, value]) => [
-          key,
-          {
-            ...value,
-            content: cloneCategoryTree(value.content),
-            pagination: { ...value.pagination },
-          },
-        ]),
-      ) as Record<string, CachedPage<CategoryResponse>>;
-
-      this.updateCategoriesAcrossCache((content) => {
-        const result = updateCategoryInTree(
-          content,
-          categoryId,
-          (category) => ({
-            ...category,
-            name: payload.name,
-            slug: payload.slug,
-            description: payload.description ?? "",
-            parentId:
-              payload.parentId === undefined
-                ? category.parentId
-                : payload.parentId,
-            updatedAt: new Date().toISOString(),
-          }),
-        );
-        return result.updated ? result.categories : content;
-      });
-
-      return () => {
-        this.categories = previousCategories;
-        this.categoriesPageCache = previousCache;
-        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-      };
-    },
-
-    applyOptimisticCategoryRemove(categoryId: number) {
-      const previousCategories = cloneCategoryTree(this.categories);
-      const previousCache = Object.fromEntries(
-        Object.entries(this.categoriesPageCache).map(([key, value]) => [
-          key,
-          {
-            ...value,
-            content: cloneCategoryTree(value.content),
-            pagination: { ...value.pagination },
-          },
-        ]),
-      ) as Record<string, CachedPage<CategoryResponse>>;
-
-      this.updateCategoriesAcrossCache((content) => {
-        const result = removeCategoryFromTree(content, categoryId);
-        return result.updated ? result.categories : content;
-      });
-
-      return () => {
-        this.categories = previousCategories;
-        this.categoriesPageCache = previousCache;
-        this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-      };
-    },
-
-    reconcileCategoryAfterMutation(category: CategoryResponse) {
-      this.updateCategoriesAcrossCache((content) => {
-        const result = updateCategoryInTree(content, category.id, () =>
-          cloneCategory(category),
-        );
-        return result.updated ? result.categories : content;
-      });
-      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-    },
-
-    removeCategory(categoryId: number) {
-      this.categories = this.categories.filter(
-        (item) => item.id !== categoryId,
-      );
-      this.descendantsByCategoryId = buildDescendantsIndex(this.categories);
-
-      for (const key of Object.keys(this.categoriesPageCache)) {
-        const cached = this.categoriesPageCache[key];
-        if (!cached) {
-          continue;
-        }
-
-        this.categoriesPageCache[key] = {
-          ...cached,
-          content: cached.content.filter((item) => item.id !== categoryId),
-        };
-      }
-    },
-
     prependTenant(tenant: UserResponse) {
       const nextTenants = [tenant, ...this.tenants].slice(
         0,
@@ -1010,11 +656,6 @@ export const useAdminDataStore = defineStore("adminData", {
           },
         };
       }
-    },
-
-    invalidateCategories() {
-      this.categoriesLoaded = false;
-      this.categoriesPageCache = {};
     },
 
     invalidateTenants() {

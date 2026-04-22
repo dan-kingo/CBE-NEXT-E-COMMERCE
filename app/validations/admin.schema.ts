@@ -1,12 +1,5 @@
 import { z } from "zod";
 
-export const categorySchema = z.object({
-  name: z.string().min(1, "Category name is required"),
-  slug: z.string().min(1, "Category slug is required"),
-  description: z.string().optional(),
-  parentId: z.coerce.number().int().positive().optional().nullable(),
-});
-
 export const tenantSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -39,7 +32,6 @@ export const templateSchema = z.object({
     .url("Preview image URL must be a valid URL"),
 });
 
-export type CategoryInput = z.infer<typeof categorySchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type BootstrapInput = z.infer<typeof bootstrapSchema>;
 export type SubscriptionPlanInput = z.infer<typeof subscriptionPlanSchema>;
