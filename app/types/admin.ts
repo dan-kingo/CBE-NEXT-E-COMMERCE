@@ -1,8 +1,3 @@
-export interface ProfileData {
-  full_name: string;
-  role: string;
-}
-
 export interface CategoryResponse {
   id: number;
   name: string;
@@ -81,11 +76,6 @@ export interface CreateUserRequest {
   email: string;
   password: string;
   role: UserRole;
-}
-
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface ApiStatus {

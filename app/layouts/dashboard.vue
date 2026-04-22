@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuth } from "~/composables/useAuth";
+import { useAuth } from "~/features/auth/composables/useAuth";
 import { useAdminDataStore } from "~/stores/adminData.store";
 
 const { logout } = useAuth();
