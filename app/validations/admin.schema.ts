@@ -13,17 +13,6 @@ export const bootstrapSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-export const subscriptionPlanSchema = z.object({
-  code: z.string().min(1, "Plan code is required").max(50),
-  name: z.string().min(1, "Plan name is required").max(120),
-  price: z.coerce.number().min(0, "Price must be non-negative"),
-  currency: z.string().length(3, "Currency must be 3 letters"),
-  durationDays: z.coerce
-    .number()
-    .int()
-    .min(1, "Duration must be at least 1 day"),
-});
-
 export const templateSchema = z.object({
   templateName: z.string().min(1, "Template name is required").max(120),
   previewImageUrl: z
@@ -34,5 +23,4 @@ export const templateSchema = z.object({
 
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type BootstrapInput = z.infer<typeof bootstrapSchema>;
-export type SubscriptionPlanInput = z.infer<typeof subscriptionPlanSchema>;
 export type TemplateInput = z.infer<typeof templateSchema>;

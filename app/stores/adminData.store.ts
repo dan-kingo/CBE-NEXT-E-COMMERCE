@@ -27,8 +27,8 @@ interface TemplateListLoadOptions extends ListLoadOptions {}
 
 interface ReviewListLoadOptions extends ListLoadOptions {
   tenantId?: string;
-  storeId?: number;
-  productId?: number;
+  storeId?: ReviewListQueryParams["storeId"];
+  productId?: ReviewListQueryParams["productId"];
   moderationStatus?: ReviewListQueryParams["moderationStatus"];
   visibilityStatus?: ReviewListQueryParams["visibilityStatus"];
 }
@@ -166,10 +166,7 @@ export const useAdminDataStore = defineStore("adminData", {
     async warmDashboardData() {
       const size = DEFAULT_PAGE_SIZE;
 
-      await Promise.allSettled([
-        this.ensureTenants({ page: 0, size }),
-        this.ensureCustomers({ page: 0, size }),
-      ]);
+      await Promise.allSettled([this.ensureCustomers({ page: 0, size })]);
     },
 
     setTenantsFromCache(page: CachedPage<UserResponse>) {
@@ -260,8 +257,6 @@ export const useAdminDataStore = defineStore("adminData", {
         fetchedAt: Date.now(),
       };
     },
-
-   
 
     async ensureCustomers(options?: boolean | ListLoadOptions) {
       const { force, page, size } = normalizeListLoadOptions(
