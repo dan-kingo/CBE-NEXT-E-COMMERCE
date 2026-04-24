@@ -5,7 +5,6 @@ import {
 } from "~/services/pagination";
 import { customerService } from "~/services/customer.service";
 import { reviewService } from "~/services/review.service";
-import { tenantService } from "~/services/tenant.service";
 import { templateService } from "~/services/template.service";
 import type {
   AdminReviewDecisionRequest,
@@ -262,73 +261,7 @@ export const useAdminDataStore = defineStore("adminData", {
       };
     },
 
-    async ensureTenants(options?: boolean | ListLoadOptions) {
-      const { force, page, size } = normalizeListLoadOptions(
-        options,
-        this.tenantsPagination,
-      );
-      const cacheKey = getCacheKey(page, size);
-      const cachedPage = this.tenantsPageCache[cacheKey];
-      const pending = inFlightTenantPages.get(cacheKey);
-
-      const canUseCurrentState =
-        this.tenantsLoaded &&
-        !force &&
-        this.tenantsPagination.page === page &&
-        this.tenantsPagination.size === size;
-
-      if (canUseCurrentState) {
-        return this.tenants;
-      }
-
-      if (cachedPage && !force) {
-        this.setTenantsFromCache(cachedPage);
-        return this.tenants;
-      }
-
-      if (pending) {
-        const result = await pending;
-        this.tenants = result.content;
-        this.tenantsPagination = result.pagination;
-        this.tenantsLoaded = true;
-        this.cacheTenantsPage(result);
-        return this.tenants;
-      }
-
-      this.isTenantsLoading = true;
-      const request = tenantService.getAll({ page, size });
-      inFlightTenantPages.set(cacheKey, request);
-      try {
-        const result = await request;
-        this.tenants = result.content;
-        this.tenantsPagination = result.pagination;
-        this.tenantsLoaded = true;
-        this.cacheTenantsPage(result);
-        return this.tenants;
-      } finally {
-        inFlightTenantPages.delete(cacheKey);
-        this.isTenantsLoading = false;
-      }
-    },
-
-    async revalidateTenants(options?: ListQueryParams) {
-      if (this.isTenantsLoading) {
-        return;
-      }
-
-      const page = options?.page ?? this.tenantsPagination.page;
-      const size = options?.size ?? this.tenantsPagination.size;
-
-      try {
-        const result = await tenantService.getAll({ page, size });
-        this.tenants = result.content;
-        this.tenantsPagination = result.pagination;
-        this.tenantsLoaded = true;
-        this.cacheTenantsPage(result);
-      } catch {
-        // Background refresh is best-effort and should not interrupt UX.
-      }
-    },
+   
 
     async ensureCustomers(options?: boolean | ListLoadOptions) {
       const { force, page, size } = normalizeListLoadOptions(
