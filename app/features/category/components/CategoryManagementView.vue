@@ -19,11 +19,11 @@ const {
 
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
-const editingCategoryId = ref<number | null>(null);
+const editingCategoryId = ref<string | null>(null);
 const editFormRef = ref<HTMLElement | null>(null);
 const isDeleteDialogOpen = ref(false);
 const categoryPendingDelete = ref<Category | null>(null);
-const expandedCategoryIds = ref(new Set<number>());
+const expandedCategoryIds = ref(new Set<string>());
 const searchQuery = ref("");
 
 const form = reactive({
@@ -94,11 +94,11 @@ const filteredRootCategories = computed(() => {
     return filterTree(roots);
 });
 
-const isExpanded = (categoryId: number) => {
+const isExpanded = (categoryId: string) => {
     return expandedCategoryIds.value.has(categoryId);
 };
 
-const toggleCategory = (categoryId: number) => {
+const toggleCategory = (categoryId: string) => {
     if (hasSearchQuery.value) {
         return;
     }
@@ -164,7 +164,7 @@ const parseFormToPayload = (): CreateCategoryRequest => ({
     name: form.name,
     slug: form.slug,
     description: form.description || undefined,
-    parentId: form.parentId ? Number(form.parentId) : null,
+    parentId: form.parentId || null,
 });
 
 const isInitialLoading = computed(
