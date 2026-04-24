@@ -3,7 +3,7 @@ export interface CategoryResponse {
   name: string;
   slug: string;
   description: string;
-  parentId: number | null;
+  parentId: string | null;
   children: CategoryResponse[];
   createdAt: string;
   updatedAt: string;
@@ -27,12 +27,12 @@ export interface CreateTenantRequest {
 export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN";
 
 export interface UserResponse {
-  id: number;
+  id: string;
   email: string;
   tenantId?: string;
   role: UserRole;
   enabled: boolean;
-  customerId?: number;
+  customerId?: string;
   customerFullName?: string;
   customerAddress?: string;
   customerPhoneNumber?: string;
@@ -52,7 +52,7 @@ export interface CreatePlanRequest {
 }
 
 export interface SubscriptionPlan {
-  id: number;
+  id: string;
   code: string;
   name: string;
   price: number;
@@ -117,7 +117,7 @@ export interface ListQueryParams {
 }
 
 export interface CustomerResponse {
-  id: number;
+  id: string;
   fullName: string;
   email: string;
   phoneNumber: string;
@@ -150,7 +150,7 @@ export interface TemplatePatchRequest {
 }
 
 export interface TemplateResponse {
-  id: number;
+  id: string;
   templateName: string;
   previewImageUrl: string;
   createdAt: string;
@@ -162,11 +162,11 @@ export type ReviewVisibilityStatus = "VISIBLE" | "HIDDEN";
 export type AdminReviewDecisionAction = "PUBLISH" | "REJECT";
 
 export interface ReviewResponse {
-  id: number;
+  id: string;
   tenantId: string;
-  storeId: number;
-  productId: number;
-  userId: number;
+  storeId: string;
+  productId: string;
+  userId: string;
   authorName: string;
   rating: number;
   title: string;
@@ -197,8 +197,8 @@ export interface ReviewListResponse {
 
 export interface ReviewListQueryParams extends ListQueryParams {
   tenantId?: string;
-  storeId?: number;
-  productId?: number;
+  storeId?: string;
+  productId?: string;
   moderationStatus?: ReviewModerationStatus;
   visibilityStatus?: ReviewVisibilityStatus;
 }

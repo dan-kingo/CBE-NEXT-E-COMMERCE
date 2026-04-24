@@ -90,7 +90,7 @@ export const categoryService = {
     return normalizeCategoryListResponse(response, page, size);
   },
 
-  async getById(id: number) {
+  async getById(id: string) {
     const { $api } = useNuxtApp();
     const response = await $api<unknown>(`/public/categories/${id}`);
     return normalizeCategoryResponse(response);
@@ -107,7 +107,7 @@ export const categoryService = {
     return normalizeCategoryResponse(response);
   },
 
-  async update(id: number, payload: CreateCategoryRequest) {
+  async update(id: string, payload: CreateCategoryRequest) {
     const { $api } = useNuxtApp();
     const body = createCategorySchema.parse(payload);
     const response = await $api<unknown>(`/categories/${id}`, {
@@ -118,7 +118,7 @@ export const categoryService = {
     return normalizeCategoryResponse(response);
   },
 
-  async remove(id: number) {
+  async remove(id: string) {
     const { $api } = useNuxtApp();
     return await $api(`/categories/${id}`, {
       method: "DELETE",

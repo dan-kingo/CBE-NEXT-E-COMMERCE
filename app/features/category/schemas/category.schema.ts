@@ -22,12 +22,12 @@ export const createCategorySchema = z.object({
   name: z.string().min(1, "Category name is required"),
   slug: z.string().min(1, "Category slug is required"),
   description: z.string().optional(),
-  parentId: z.number().int().positive().optional().nullable(),
+  parentId: z.string().uuid().nullable(),
 });
 
 export const categoryDtoSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
-    id: z.number(),
+    id: z.string().uuid(),
     name: z.string(),
     slug: z.string(),
     description: z
@@ -35,7 +35,7 @@ export const categoryDtoSchema: z.ZodType<any> = z.lazy(() =>
       .nullable()
       .optional()
       .transform((v) => v ?? ""),
-    parentId: z.number().nullable(),
+    parentId: z.string().uuid().nullable(),
     children: z.array(categoryDtoSchema).default([]),
     createdAt: z.string(),
     updatedAt: z.string(),

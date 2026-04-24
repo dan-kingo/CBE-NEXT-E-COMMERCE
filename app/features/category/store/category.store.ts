@@ -42,10 +42,10 @@ const cloneCategoryTree = (categories: Category[]) =>
   categories.map(cloneCategory);
 
 const buildDescendantsIndex = (categories: Category[]) => {
-  const index: Record<string, number[]> = {};
+  const index: Record<string, string[]> = {};
 
-  const visit = (category: Category): number[] => {
-    const descendants: number[] = [];
+  const visit = (category: Category): string[] => {
+    const descendants: string[] = [];
     for (const child of category.children) {
       descendants.push(child.id);
       descendants.push(...visit(child));
@@ -64,7 +64,7 @@ const buildDescendantsIndex = (categories: Category[]) => {
 
 const updateCategoryInTree = (
   categories: Category[],
-  categoryId: number,
+  categoryId: string,
   updater: (category: Category) => Category,
 ) => {
   let updated = false;
@@ -98,7 +98,7 @@ const updateCategoryInTree = (
   return { categories: next, updated };
 };
 
-const removeCategoryFromTree = (categories: Category[], categoryId: number) => {
+const removeCategoryFromTree = (categories: Category[], categoryId: string) => {
   let updated = false;
 
   const next: Category[] = [];
@@ -132,7 +132,7 @@ const removeCategoryFromTree = (categories: Category[], categoryId: number) => {
 export const useCategoryStore = defineStore("category", {
   state: () => ({
     data: [] as Category[],
-    descendantsByCategoryId: {} as Record<string, number[]>,
+    descendantsByCategoryId: {} as Record<string, string[]>,
     pagination: createEmptyPagination(),
     cachedPages: {} as Record<string, Category[]>,
     paginationByPage: {} as Record<string, PaginationMeta>,
@@ -191,7 +191,7 @@ export const useCategoryStore = defineStore("category", {
     },
 
     applyOptimisticCategoryUpdate(
-      categoryId: number,
+      categoryId: string,
       payload: CreateCategoryRequest,
     ) {
       const previousCategories = cloneCategoryTree(this.data);
@@ -229,7 +229,7 @@ export const useCategoryStore = defineStore("category", {
       };
     },
 
-    applyOptimisticCategoryRemove(categoryId: number) {
+    applyOptimisticCategoryRemove(categoryId: string) {
       const previousCategories = cloneCategoryTree(this.data);
       const previousCache = Object.fromEntries(
         Object.entries(this.cachedPages).map(([key, value]) => [
@@ -343,7 +343,7 @@ export const useCategoryStore = defineStore("category", {
       return created;
     },
 
-    async updateCategory(categoryId: number, payload: CreateCategoryRequest) {
+    async updateCategory(categoryId: string, payload: CreateCategoryRequest) {
       const rollback = this.applyOptimisticCategoryUpdate(categoryId, payload);
 
       try {
@@ -356,7 +356,7 @@ export const useCategoryStore = defineStore("category", {
       }
     },
 
-    async deleteCategory(categoryId: number) {
+    async deleteCategory(categoryId: string) {
       const rollback = this.applyOptimisticCategoryRemove(categoryId);
 
       try {

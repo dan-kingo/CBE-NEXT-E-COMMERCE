@@ -27,22 +27,22 @@ export interface ListQueryParams {
 }
 
 export interface CategoryDTO {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   description: string;
-  parentId: number | null;
+  parentId: string | null;
   children: CategoryDTO[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   description: string;
-  parentId: number | null;
+  parentId: string | null;
   children: Category[];
   createdAt: string;
   updatedAt: string;
@@ -52,5 +52,5 @@ export interface CreateCategoryRequest {
   name: string;
   slug: string;
   description?: string;
-  parentId?: number | null;
+  parentId?: string | null;
 }

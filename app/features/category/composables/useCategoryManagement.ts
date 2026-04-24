@@ -13,7 +13,7 @@ export const useCategoryManagement = () => {
     name: string;
     slug: string;
     description?: string;
-    parentId?: number | null;
+    parentId?: string | null;
   }): CreateCategoryInput => {
     const parsed = createCategorySchema.safeParse(payload);
     if (!parsed.success) {
@@ -36,18 +36,18 @@ export const useCategoryManagement = () => {
       name: string;
       slug: string;
       description?: string;
-      parentId?: number | null;
+      parentId?: string | null;
     }) => {
       const input = parsePayload(payload);
       return await store.createCategory(input);
     },
     updateCategory: async (
-      categoryId: number,
+      categoryId: string,
       payload: {
         name: string;
         slug: string;
         description?: string;
-        parentId?: number | null;
+        parentId?: string | null;
       },
     ) => {
       const input = parsePayload(payload);
