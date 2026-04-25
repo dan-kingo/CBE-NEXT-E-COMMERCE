@@ -13,6 +13,16 @@ const profileMenuRef = ref<HTMLElement | null>(null)
 const normalizePath = (path: string) =>
     path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 
+const toDashboardPath = (path: string) => {
+    const normalized = normalizePath(path)
+
+    if (normalized === '/categories' || normalized.startsWith('/categories/')) {
+        return `/dashboard${normalized}`
+    }
+
+    return normalized
+}
+
 const profileInitials = computed(() => {
     const firstInitial = profile.value?.firstName?.charAt(0) ?? 'A'
     return `${firstInitial}`
@@ -28,7 +38,7 @@ const adminName = computed(() => {
 const adminEmail = computed(() => profile.value?.email || 'admin@example.com')
 
 const activeMenuItem = computed(() => {
-    const currentPath = normalizePath(route.path)
+    const currentPath = toDashboardPath(route.path)
 
     return menuItems.find((item) => {
         const targetPath = normalizePath(item.to)
@@ -43,16 +53,34 @@ const activeMenuItem = computed(() => {
 
 const breadcrumbItems = computed(() => {
     const dashboardItem = menuItems.find((item) => item.to === '/dashboard')
+    const currentPath = toDashboardPath(route.path)
+    const items: Array<{ to: string; title: string }> = []
 
     if (!dashboardItem) {
         return activeMenuItem.value ? [activeMenuItem.value] : []
     }
 
-    if (!activeMenuItem.value || activeMenuItem.value.to === dashboardItem.to) {
-        return [dashboardItem]
+    items.push({ to: dashboardItem.to, title: dashboardItem.title })
+
+    const activeItem = activeMenuItem.value
+    if (activeItem && activeItem.to !== dashboardItem.to) {
+        items.push({ to: activeItem.to, title: activeItem.title })
     }
 
-    return [dashboardItem, activeMenuItem.value]
+    if (currentPath.startsWith('/dashboard/categories/')) {
+        const segments = currentPath.split('/').filter(Boolean)
+        const lastSegment = segments[segments.length - 1]
+
+        if (lastSegment === 'create') {
+            items.push({ to: currentPath, title: 'Create' })
+        } else if (lastSegment === 'edit') {
+            items.push({ to: currentPath, title: 'Edit' })
+        }
+    }
+
+    return items.filter((item, index, arr) =>
+        index === arr.findIndex((candidate) => candidate.to === item.to),
+    )
 })
 
 const formatBreadcrumbFromPath = (to: string) => {
@@ -68,6 +96,14 @@ const formatBreadcrumbFromPath = (to: string) => {
         .trim()
 
     return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+const getBreadcrumbLabel = (item: { to: string; title: string }) => {
+    if (item.title === 'Create' || item.title === 'Edit') {
+        return item.title
+    }
+
+    return formatBreadcrumbFromPath(item.to)
 }
 
 const handleDocumentClick = (event: MouseEvent) => {
@@ -125,10 +161,10 @@ const handleLogout = async () => {
                         <template v-for="(item, index) in breadcrumbItems" :key="item.to">
                             <NuxtLink v-if="index < breadcrumbItems.length - 1" :to="item.to"
                                 class="text-base text-muted-foreground transition-colors hover:text-foreground">
-                                {{ formatBreadcrumbFromPath(item.to) }}
+                                {{ getBreadcrumbLabel(item) }}
                             </NuxtLink>
                             <span v-else class="text-base text-foreground">
-                                {{ formatBreadcrumbFromPath(item.to) }}
+                                {{ getBreadcrumbLabel(item) }}
                             </span>
 
                             <ChevronRight v-if="index < breadcrumbItems.length - 1"

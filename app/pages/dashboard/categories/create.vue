@@ -3,10 +3,10 @@ import CategoryManagementView from "~/features/category/components/CategoryManag
 
 definePageMeta({
     layout: "dashboard",
-    alias: ["/categories"],
+    alias: ["/categories/create"],
 });
 </script>
 
 <template>
-    <CategoryManagementView mode="list" />
+    <CategoryManagementView mode="create" />
 </template>
