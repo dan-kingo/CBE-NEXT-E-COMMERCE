@@ -9,8 +9,10 @@ export interface AuthTokenDTO {
 }
 
 export interface AuthProfileDTO {
-  full_name: string;
+  firstName: string;
+  lastName: string;
   role: string;
+  email: string; 
 }
 
 export interface AuthSession {
@@ -19,7 +21,9 @@ export interface AuthSession {
 }
 
 export interface AuthProfile {
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   role: string;
 }
 

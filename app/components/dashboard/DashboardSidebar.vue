@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { UserCircle2Icon } from 'lucide-vue-next';
 import { useSidebar } from '~/components/ui/sidebar';
+import { useAuth } from '~/features/auth';
+const { fetchProfile, profile } = useAuth()
+
+const profileInitials = computed(() => {
+    const firstInitial = profile.value?.firstName?.charAt(0) ?? 'A'
+    const lastInitial = profile.value?.lastName?.charAt(0) ?? 'O'
+
+    return `${firstInitial}`
+})
+
+onMounted(async () => {
+    await fetchProfile()
+})
 
 const route = useRoute()
 const { isMobile, setOpenMobile } = useSidebar()
-
 const normalizePath = (path: string) =>
     path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 
@@ -69,11 +81,13 @@ const handleMenuNavigation = () => {
 
                         <div
                             class="size-9 shrink-0 rounded-full bg-brand/30 text-brand/70 flex items-center justify-center font-medium">
-                            A
+                            {{ profileInitials }}
                         </div>
                         <div class="group-data-[collapsible=icon]:hidden text-left">
-                            <p class="text-sm font-medium leading-none">Admin One</p>
-                            <p class="text-xs text-muted-foreground">admin@gmail.com</p>
+                            <p class="text-sm font-medium leading-none">
+                                {{ profile?.firstName || 'Admin' }} {{ profile?.lastName || 'One' }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">{{ profile?.email || 'admin@example.com' }}</p>
                         </div>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

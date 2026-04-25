@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { email } from "zod/v4";
 
 export const apiStatusSchema = z.object({
   code: z.number(),
@@ -35,7 +36,9 @@ export const loginResponseSchema = z
   .passthrough();
 
 export const authProfileSchema = z.object({
-  full_name: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string().email(),
   role: z.string(),
 });
 

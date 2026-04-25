@@ -11,6 +11,8 @@ export const mapTokenDtoToSession = (dto: AuthTokenDTO): AuthSession => ({
 });
 
 export const mapAuthProfileDto = (dto: AuthProfileDTO): AuthProfile => ({
-  fullName: dto.full_name,
+  firstName: dto.firstName,
+  lastName: dto.lastName,
   role: dto.role,
+  email: dto.email, // Assuming email is added to AuthProfileDTO
 });
