@@ -10,7 +10,7 @@ import type {
   ReviewListResponse,
   ReviewResponse,
   ReviewSummaryResponse,
-} from "~/types/admin";
+} from "~/features/review/types/review.types";
 
 interface ApiResponse<T> {
   status: ApiStatus;

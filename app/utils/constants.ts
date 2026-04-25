@@ -17,7 +17,6 @@ const menuItems = [
     icon: CreditCard,
   },
   { title: "Manage Tenants", to: "/dashboard/tenants", icon: Building2 },
-  { title: "Manage Templates", to: "/dashboard/templates", icon: Tags },
   { title: "Manage Reviews", to: "/dashboard/reviews", icon: MessageSquare },
 ];
 

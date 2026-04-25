@@ -1,29 +1,3 @@
-export interface CategoryResponse {
-  id: number;
-  name: string;
-  slug: string;
-  description: string;
-  parentId: string | null;
-  children: CategoryResponse[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateCategoryRequest {
-  name: string;
-  slug: string;
-  description?: string;
-  parentId?: number | null;
-}
-
-export interface CreateTenantRequest {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-}
-
 export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN";
 
 export interface UserResponse {
@@ -41,15 +15,6 @@ export interface UserResponse {
   lastName?: string;
   phoneNumber?: string;
   fullName?: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  role: UserRole;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
 }
 
 export interface CreateUserRequest {
@@ -96,19 +61,6 @@ export interface ListQueryParams {
   size?: number;
 }
 
-export interface CustomerResponse {
-  id: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  address: string | null;
-}
-
-export interface CreateTemplateRequest {
-  templateName: string;
-  previewImageUrl: string;
-}
-
 export interface MediaFileResponse {
   secureUrl: string;
   resourceType: string;
@@ -122,68 +74,4 @@ export interface MediaFileResponse {
 export interface MediaUploadResponse {
   status: ApiStatus;
   data: MediaFileResponse;
-}
-
-export interface TemplatePatchRequest {
-  templateName?: string;
-  previewImageUrl?: string;
-}
-
-export interface TemplateResponse {
-  id: string;
-  templateName: string;
-  previewImageUrl: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type ReviewModerationStatus = "PUBLISHED" | "PENDING" | "REJECTED";
-export type ReviewVisibilityStatus = "VISIBLE" | "HIDDEN";
-export type AdminReviewDecisionAction = "PUBLISH" | "REJECT";
-
-export interface ReviewResponse {
-  id: string;
-  tenantId: string;
-  storeId: string;
-  productId: string;
-  userId: string;
-  authorName: string;
-  rating: number;
-  title: string;
-  summary: string;
-  comment: string;
-  imageUrls: string[];
-  moderationStatus: ReviewModerationStatus;
-  visibilityStatus: ReviewVisibilityStatus;
-  rejectionReason?: string | null;
-  reportCount: number;
-  contentVisible: boolean;
-  statusMessage?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ReviewSummaryResponse {
-  averageRating: number;
-  totalPublishedReviews: number;
-  ratingBreakdown: Record<string, number>;
-}
-
-export interface ReviewListResponse {
-  content: ReviewResponse[];
-  pagination: PaginationMeta;
-  summary: ReviewSummaryResponse;
-}
-
-export interface ReviewListQueryParams extends ListQueryParams {
-  tenantId?: string;
-  storeId?: string;
-  productId?: string;
-  moderationStatus?: ReviewModerationStatus;
-  visibilityStatus?: ReviewVisibilityStatus;
-}
-
-export interface AdminReviewDecisionRequest {
-  action: AdminReviewDecisionAction;
-  rejectionReason?: string;
 }

@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { useAuth } from "~/features/auth/composables/useAuth";
-import { useAdminDataStore } from "~/stores/adminData.store";
 
 const { logout } = useAuth();
-const adminDataStore = useAdminDataStore();
 const toast = useToast()
 const handleLogout = async () => {
     try {
@@ -18,10 +16,6 @@ const handleLogout = async () => {
         })
     }
 }
-
-onMounted(() => {
-    void adminDataStore.warmDashboardData();
-});
 </script>
 
 <template>
