@@ -5,8 +5,20 @@ import { useSidebar } from '~/components/ui/sidebar';
 const route = useRoute()
 const { isMobile, setOpenMobile } = useSidebar()
 
-const isActive = (to: string) =>
-    route.path === to || route.path.startsWith(`${to}/`)
+const normalizePath = (path: string) =>
+    path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+
+const isActive = (to: string) => {
+    const currentPath = normalizePath(route.path)
+    const targetPath = normalizePath(to)
+
+    // Keep the dashboard root active only on its exact route.
+    if (targetPath === '/dashboard') {
+        return currentPath === targetPath
+    }
+
+    return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
+}
 
 const handleMenuNavigation = () => {
     if (isMobile.value) {
@@ -19,9 +31,10 @@ const handleMenuNavigation = () => {
 <template>
     <Sidebar collapsible="icon" variant="sidebar" class="border-r">
         <SidebarHeader class="border-b">
-            <div class="flex items-center gap-2 px-2 py-1.5">
+            <div
+                class="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
                 <div
-                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/20 text-primary-foreground font-semibold">
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-primary-foreground font-semibold">
                     <UserCircle2Icon class="size-4" />
                 </div>
                 <div class="group-data-[collapsible=icon]:hidden">
@@ -34,12 +47,12 @@ const handleMenuNavigation = () => {
         <SidebarContent>
             <SidebarGroup>
                 <SidebarGroupContent>
-                    <SidebarMenu>
+                    <SidebarMenu class="gap-3">
                         <SidebarMenuItem v-for="item in menuItems" :key="item.title">
-                            <SidebarMenuButton as-child :is-active="isActive(item.to)" :tooltip="item.title" class="hover:bg-brand/20 hover:text-brand/70   router-link-active:bg-brand/20
-         router-link-active:text-brand">
+                            <SidebarMenuButton as-child :is-active="isActive(item.to)" :tooltip="item.title"
+                                class="text-[15px] hover:bg-brand/20 hover:text-brand/70 data-[active=true]:bg-brand/20 data-[active=true]:text-brand/70">
                                 <NuxtLink :to="item.to" @click="handleMenuNavigation">
-                                    <component :is="item.icon" class="size-4  " />
+                                    <component :is="item.icon" class="size-4.5 shrink-0" />
                                     <span>{{ item.title }}</span>
                                 </NuxtLink>
                             </SidebarMenuButton>
@@ -52,10 +65,10 @@ const handleMenuNavigation = () => {
         <SidebarFooter class="border-t">
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton>
+                    <SidebarMenuButton class="group-data-[collapsible=icon]:justify-center">
 
                         <div
-                            class="size-8 rounded-full bg-brand/30 text-brand/70 flex items-center justify-center font-medium">
+                            class="size-9 shrink-0 rounded-full bg-brand/30 text-brand/70 flex items-center justify-center font-medium">
                             A
                         </div>
                         <div class="group-data-[collapsible=icon]:hidden text-left">
