@@ -26,6 +26,7 @@ export const useSubscriptionManagement = () => {
     loadPlans: store.loadPlans,
     createPlan: store.createPlan,
     updatePlan: store.updatePlan,
+    togglePlanActive: store.togglePlanActive,
     loadPlanStats: store.loadPlanStats,
     resetForm: store.resetForm,
   };

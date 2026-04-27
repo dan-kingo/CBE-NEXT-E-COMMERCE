@@ -163,6 +163,29 @@ export const useSubscriptionStore = defineStore("subscription", {
       }
     },
 
+    async togglePlanActive(id: string, active: boolean) {
+      this.isSubmitting = true;
+
+      try {
+        const updated = await subscriptionService.update(id, { active });
+        this.plans = this.plans.map((plan) =>
+          plan.id === id ? updated : plan,
+        );
+
+        if (this.statsByPlanId[id]) {
+          this.statsByPlanId[id] = {
+            ...this.statsByPlanId[id],
+            id: updated.id,
+            name: updated.name,
+          };
+        }
+
+        return updated;
+      } finally {
+        this.isSubmitting = false;
+      }
+    },
+
     async loadPlanStats(id: string) {
       const stats = await subscriptionService.getStats(id);
       this.statsByPlanId[id] = stats;

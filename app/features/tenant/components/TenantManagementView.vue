@@ -1,205 +1,247 @@
 <script setup lang="ts">
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useTenantManagement } from "~/features/tenant/composables/useTenantManagement";
+import { getStatusBadgeClass, getTenantStatusTone } from "~/utils/status";
 
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
 const {
-    tenants,
-    isTenantsLoading,
-    tenantsLoaded,
-    tenantsPagination,
-    loadTenants,
-    createTenant,
+  tenants,
+  isTenantsLoading,
+  tenantsLoaded,
+  tenantsPagination,
+  loadTenants,
+  createTenant,
 } = useTenantManagement();
 
 const isSubmitting = ref(false);
 const isInitialLoading = computed(
-    () => isTenantsLoading.value && !tenantsLoaded.value,
+  () => isTenantsLoading.value && !tenantsLoaded.value,
 );
 const pageSummary = computed(() => {
-    if (!tenantsPagination.value.totalElements) {
-        return "No tenants";
-    }
+  if (!tenantsPagination.value.totalElements) {
+    return "No tenants";
+  }
 
-    const start = tenantsPagination.value.page * tenantsPagination.value.size + 1;
-    const end = start + tenantsPagination.value.numberOfElements - 1;
-    return `Showing ${start}-${end} of ${tenantsPagination.value.totalElements}`;
+  const start = tenantsPagination.value.page * tenantsPagination.value.size + 1;
+  const end = start + tenantsPagination.value.numberOfElements - 1;
+  return `Showing ${start}-${end} of ${tenantsPagination.value.totalElements}`;
 });
 
 const form = reactive({
-    email: "",
-    password: "",
-    firstName: "",
-    lastName: "",
-    phoneNumber: "",
+  email: "",
+  password: "",
+  firstName: "",
+  lastName: "",
+  phoneNumber: "",
 });
 
 const safeLoadTenants = async (
-    page = tenantsPagination.value.page,
-    force = false,
+  page = tenantsPagination.value.page,
+  force = false,
 ) => {
-    const size =
-        tenantsPagination.value.size > 1
-            ? tenantsPagination.value.size
-            : DEFAULT_PAGE_SIZE;
+  const size =
+    tenantsPagination.value.size > 1
+      ? tenantsPagination.value.size
+      : DEFAULT_PAGE_SIZE;
 
-    try {
-        await loadTenants({
-            force,
-            page,
-            size,
-        });
-    } catch (error) {
-        toast.error({ message: getMessageFromUnknown(error) });
-    }
+  try {
+    await loadTenants({
+      force,
+      page,
+      size,
+    });
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  }
 };
 
 const submitTenant = async () => {
-    isSubmitting.value = true;
-    try {
-        await createTenant(form);
-        toast.success({ message: "Tenant created successfully" });
+  isSubmitting.value = true;
+  try {
+    await createTenant(form);
+    toast.success({ message: "Tenant created successfully" });
 
-        form.email = "";
-        form.password = "";
-        form.firstName = "";
-        form.lastName = "";
-        form.phoneNumber = "";
-    } catch (error) {
-        toast.error({ message: getMessageFromUnknown(error) });
-    } finally {
-        isSubmitting.value = false;
-    }
+    form.email = "";
+    form.password = "";
+    form.firstName = "";
+    form.lastName = "";
+    form.phoneNumber = "";
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 const goToPreviousPage = async () => {
-    if (!tenantsPagination.value.hasPrevious || isTenantsLoading.value) {
-        return;
-    }
+  if (!tenantsPagination.value.hasPrevious || isTenantsLoading.value) {
+    return;
+  }
 
-    await safeLoadTenants(tenantsPagination.value.page - 1);
+  await safeLoadTenants(tenantsPagination.value.page - 1);
 };
 
 const goToNextPage = async () => {
-    if (!tenantsPagination.value.hasNext || isTenantsLoading.value) {
-        return;
-    }
+  if (!tenantsPagination.value.hasNext || isTenantsLoading.value) {
+    return;
+  }
 
-    await safeLoadTenants(tenantsPagination.value.page + 1);
+  await safeLoadTenants(tenantsPagination.value.page + 1);
 };
 
 onMounted(() => {
-    safeLoadTenants(tenantsLoaded.value ? tenantsPagination.value.page : 0);
+  safeLoadTenants(tenantsLoaded.value ? tenantsPagination.value.page : 0);
 });
 </script>
 
 <template>
-    <section class="space-y-6">
-        <div>
-            <h1 class="text-2xl font-semibold">Tenant Management</h1>
-            <p class="text-sm text-muted-foreground">
-                create and manage tenant accounts that can access the dashboard.
-            </p>
+  <section class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold">Tenant Management</h1>
+      <p class="text-sm text-muted-foreground">
+        create and manage tenant accounts that can access the dashboard.
+      </p>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-3">
+      <Card class="lg:col-span-1 px-6 self-start">
+        <div class="space-y-4">
+          <h2 class="text-lg font-medium">Create Tenant</h2>
+
+          <div class="space-y-2">
+            <Label for="tenant-email">Email</Label>
+            <Input
+              id="tenant-email"
+              v-model="form.email"
+              placeholder="tenant@example.com"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="tenant-password">Password</Label>
+            <Input
+              id="tenant-password"
+              v-model="form.password"
+              type="password"
+              placeholder="At least 8 chars"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="tenant-first-name">First Name</Label>
+            <Input
+              id="tenant-first-name"
+              v-model="form.firstName"
+              placeholder="John"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="tenant-last-name">Last Name</Label>
+            <Input
+              id="tenant-last-name"
+              v-model="form.lastName"
+              placeholder="Doe"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="tenant-phone">Phone Number</Label>
+            <Input
+              id="tenant-phone"
+              v-model="form.phoneNumber"
+              placeholder="+2519xxxxxxx"
+            />
+          </div>
+
+          <Button
+            class="w-full cursor-pointer"
+            :disabled="isSubmitting"
+            @click="submitTenant"
+          >
+            {{ isSubmitting ? "Creating..." : "Create Tenant" }}
+          </Button>
         </div>
+      </Card>
 
-        <div class="grid gap-4 lg:grid-cols-3">
-            <Card class="lg:col-span-1 px-6 self-start">
-                <div class="space-y-4">
-                    <h2 class="text-lg font-medium">Create Tenant</h2>
+      <Card class="lg:col-span-2 px-6">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-medium">Tenant List</h2>
+          </div>
 
-                    <div class="space-y-2">
-                        <Label for="tenant-email">Email</Label>
-                        <Input id="tenant-email" v-model="form.email" placeholder="tenant@example.com" />
-                    </div>
+          <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
+            Loading tenants...
+          </div>
 
-                    <div class="space-y-2">
-                        <Label for="tenant-password">Password</Label>
-                        <Input id="tenant-password" v-model="form.password" type="password"
-                            placeholder="At least 8 chars" />
-                    </div>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="border-b text-left">
+                  <th class="py-2">Email</th>
+                  <th class="py-2">Name</th>
+                  <th class="py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="tenant in tenants" :key="tenant.id" class="border-b">
+                  <td class="py-2">{{ tenant.email }}</td>
+                  <td class="py-2">
+                    {{ [tenant.fullName].filter(Boolean).join(" ") || "-" }}
+                  </td>
+                  <td class="py-2">
+                    <Badge
+                      variant="outline"
+                      :class="
+                        getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
+                      "
+                    >
+                      {{ tenant.enabled ? "Enabled" : "Disabled" }}
+                    </Badge>
+                  </td>
+                </tr>
+                <tr v-if="!tenants.length">
+                  <td
+                    colspan="4"
+                    class="py-4 text-center text-muted-foreground"
+                  >
+                    No tenants yet.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-                    <div class="space-y-2">
-                        <Label for="tenant-first-name">First Name</Label>
-                        <Input id="tenant-first-name" v-model="form.firstName" placeholder="John" />
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="tenant-last-name">Last Name</Label>
-                        <Input id="tenant-last-name" v-model="form.lastName" placeholder="Doe" />
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="tenant-phone">Phone Number</Label>
-                        <Input id="tenant-phone" v-model="form.phoneNumber" placeholder="+2519xxxxxxx" />
-                    </div>
-
-                    <Button class="w-full cursor-pointer" :disabled="isSubmitting" @click="submitTenant">
-                        {{ isSubmitting ? "Creating..." : "Create Tenant" }}
-                    </Button>
-                </div>
-            </Card>
-
-            <Card class="lg:col-span-2 px-6">
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-lg font-medium">Tenant List</h2>
-                    </div>
-
-                    <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
-                        Loading tenants...
-                    </div>
-
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full border-collapse text-sm">
-                            <thead>
-                                <tr class="border-b text-left">
-                                    <th class="py-2">Email</th>
-                                    <th class="py-2">Name</th>
-                                    <th class="py-2">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="tenant in tenants" :key="tenant.id" class="border-b">
-                                    <td class="py-2">{{ tenant.email }}</td>
-                                    <td class="py-2">
-                                        {{ [tenant.fullName].filter(Boolean).join(" ") || "-" }}
-                                    </td>
-                                    <td class="py-2">
-                                        <Badge :variant="tenant.enabled ? 'outline' : 'destructive'">
-                                            {{ tenant.enabled ? "Enabled" : "Disabled" }}
-                                        </Badge>
-                                    </td>
-                                </tr>
-                                <tr v-if="!tenants.length">
-                                    <td colspan="4" class="py-4 text-center text-muted-foreground">
-                                        No tenants yet.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                            <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
-                            <div class="flex items-center gap-2">
-                                <Button class="cursor-pointer" size="sm" variant="outline"
-                                    :disabled="!tenantsPagination.hasPrevious || isTenantsLoading"
-                                    @click="goToPreviousPage">
-                                    Previous
-                                </Button>
-                                <p class="text-xs text-muted-foreground">
-                                    Page {{ tenantsPagination.page + 1 }} of
-                                    {{ Math.max(tenantsPagination.totalPages, 1) }}
-                                </p>
-                                <Button class="cursor-pointer" size="sm" variant="outline"
-                                    :disabled="!tenantsPagination.hasNext || isTenantsLoading" @click="goToNextPage">
-                                    Next
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </Card>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
+              <div class="flex items-center gap-2">
+                <Button
+                  class="cursor-pointer"
+                  size="sm"
+                  variant="outline"
+                  :disabled="!tenantsPagination.hasPrevious || isTenantsLoading"
+                  @click="goToPreviousPage"
+                >
+                  Previous
+                </Button>
+                <p class="text-xs text-muted-foreground">
+                  Page {{ tenantsPagination.page + 1 }} of
+                  {{ Math.max(tenantsPagination.totalPages, 1) }}
+                </p>
+                <Button
+                  class="cursor-pointer"
+                  size="sm"
+                  variant="outline"
+                  :disabled="!tenantsPagination.hasNext || isTenantsLoading"
+                  @click="goToNextPage"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-    </section>
+      </Card>
+    </div>
+  </section>
 </template>

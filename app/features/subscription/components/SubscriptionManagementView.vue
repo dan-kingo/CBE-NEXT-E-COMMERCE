@@ -5,8 +5,14 @@ import type {
   SubscriptionPlan,
   SubscriptionPlanStats,
 } from "~/features/subscription/types/subscription.types";
-import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useSubscriptionManagement } from "~/features/subscription/composables/useSubscriptionManagement";
+import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
+import {
+  getPlanStatusTone,
+  getPlanToggleTone,
+  getStatusBadgeClass,
+  getStatusButtonClass,
+} from "~/utils/status";
 
 interface SubscriptionManagementViewProps {
   mode?: "list" | "create" | "edit";
@@ -35,6 +41,7 @@ const {
   loadPlans,
   createPlan,
   updatePlan,
+  togglePlanActive,
   loadPlanStats,
   resetForm,
 } = useSubscriptionManagement();
@@ -100,6 +107,8 @@ const filterActivePlans = computed(() => {
 });
 
 const openActionMenuForId = ref<string | null>(null);
+const isStatusDialogOpen = ref(false);
+const planPendingStatusChange = ref<SubscriptionPlan | null>(null);
 
 const isInitialLoading = computed(() => isLoading.value && !plans.value.length);
 
@@ -222,6 +231,39 @@ const toggleActionMenu = (planId: string) => {
     openActionMenuForId.value === planId ? null : planId;
 };
 
+const openStatusDialog = (plan: SubscriptionPlan) => {
+  openActionMenuForId.value = null;
+  planPendingStatusChange.value = plan;
+  isStatusDialogOpen.value = true;
+};
+
+const closeStatusDialog = () => {
+  isStatusDialogOpen.value = false;
+  planPendingStatusChange.value = null;
+};
+
+const confirmStatusChange = async () => {
+  if (!planPendingStatusChange.value) {
+    return;
+  }
+
+  const currentPlan = planPendingStatusChange.value;
+
+  try {
+    await togglePlanActive(currentPlan.id, !currentPlan.active);
+    toast.success({
+      message: currentPlan.active
+        ? "Subscription plan deactivated"
+        : "Subscription plan activated",
+    });
+
+    await loadPlanPage(pagination.value.page);
+    closeStatusDialog();
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  }
+};
+
 const closeActionMenu = () => {
   openActionMenuForId.value = null;
 };
@@ -323,7 +365,10 @@ onBeforeUnmount(() => {
                   <p class="text-xs text-muted-foreground">Plan</p>
                   <p class="font-medium">{{ plan.name }}</p>
                 </div>
-                <Badge :variant="plan.active ? 'outline' : 'secondary'">
+                <Badge
+                  variant="outline"
+                  :class="getStatusBadgeClass(getPlanStatusTone(plan.active))"
+                >
                   {{ plan.active ? "Active" : "Inactive" }}
                 </Badge>
               </div>
@@ -338,7 +383,7 @@ onBeforeUnmount(() => {
                   <p>{{ plan.durationDays }} days</p>
                 </div>
                 <div>
-                  <p class="text-xs text-muted-foreground">Created</p>
+                  <p class="text-xs text-muted-foreground">Updated</p>
                   <p>{{ formatDate(plan.updatedAt) }}</p>
                 </div>
                 <div>
@@ -367,6 +412,15 @@ onBeforeUnmount(() => {
                       @click="goToEditPlan(plan)"
                     >
                       View &amp; Edit
+                    </button>
+                    <button
+                      class="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm cursor-pointer"
+                      :class="
+                        getStatusButtonClass(getPlanToggleTone(plan.active))
+                      "
+                      @click="openStatusDialog(plan)"
+                    >
+                      {{ plan.active ? "Deactivate" : "Activate" }}
                     </button>
                   </div>
                 </div>
@@ -412,7 +466,12 @@ onBeforeUnmount(() => {
                   </td>
                   <td class="py-2">{{ plan.durationDays }} days</td>
                   <td class="py-2">
-                    <Badge :variant="plan.active ? 'outline' : 'secondary'">
+                    <Badge
+                      variant="outline"
+                      :class="
+                        getStatusBadgeClass(getPlanStatusTone(plan.active))
+                      "
+                    >
                       {{ plan.active ? "Active" : "Inactive" }}
                     </Badge>
                   </td>
@@ -439,6 +498,15 @@ onBeforeUnmount(() => {
                           @click="goToEditPlan(plan)"
                         >
                           View &amp; Edit
+                        </button>
+                        <button
+                          class="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm cursor-pointer"
+                          :class="
+                            getStatusButtonClass(getPlanToggleTone(plan.active))
+                          "
+                          @click="openStatusDialog(plan)"
+                        >
+                          {{ plan.active ? "Deactivate" : "Activate" }}
                         </button>
                       </div>
                     </div>
@@ -489,7 +557,68 @@ onBeforeUnmount(() => {
       </div>
     </Card>
 
-    <Card v-else class="w-full px-6">
+    <div
+      v-if="isStatusDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      @click.self="closeStatusDialog"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="toggle-plan-title"
+        class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+      >
+        <h3 id="toggle-plan-title" class="text-lg font-semibold">
+          {{
+            planPendingStatusChange?.active
+              ? "Deactivate subscription plan?"
+              : "Activate subscription plan?"
+          }}
+        </h3>
+        <p class="mt-2 text-sm text-muted-foreground">
+          {{
+            planPendingStatusChange?.active
+              ? "This will disable the plan for new subscriptions."
+              : "This will enable the plan for new subscriptions."
+          }}
+          <span class="font-medium text-foreground">
+            {{ planPendingStatusChange?.name }}
+          </span>
+        </p>
+
+        <div class="mt-6 flex justify-end gap-2">
+          <Button
+            class="cursor-pointer"
+            variant="outline"
+            @click="closeStatusDialog"
+          >
+            Cancel
+          </Button>
+          <Button
+            class="cursor-pointer"
+            :class="
+              getStatusButtonClass(
+                planPendingStatusChange?.active ? 'warning' : 'success',
+              )
+            "
+            :disabled="isSubmitting"
+            @click="confirmStatusChange"
+          >
+            {{
+              isSubmitting
+                ? planPendingStatusChange?.active
+                  ? "Deactivating..."
+                  : "Activating..."
+                : planPendingStatusChange?.active
+                  ? "Deactivate"
+                  : "Activate"
+            }}
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <Card v-if="!isListMode" class="w-full px-6">
       <div class="space-y-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
