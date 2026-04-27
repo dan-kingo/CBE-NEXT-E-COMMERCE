@@ -2,10 +2,10 @@
 import { AdminManagementView } from "~/features/admin";
 
 definePageMeta({
-    layout: "dashboard",
+  layout: "dashboard",
 });
 </script>
 
 <template>
-    <AdminManagementView />
+  <AdminManagementView mode="create" />
 </template>

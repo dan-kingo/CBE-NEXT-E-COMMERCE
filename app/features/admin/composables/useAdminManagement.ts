@@ -1,3 +1,5 @@
+import { storeToRefs } from "pinia";
+import { useAdminStore } from "~/features/admin/store/admin.store";
 import {
   createAdminSchema,
   type CreateAdminSchemaInput,
@@ -9,6 +11,9 @@ import type {
 } from "~/features/admin/types/admin.types";
 
 export const useAdminManagement = () => {
+  const store = useAdminStore();
+  const { admins, pagination, loaded, isLoading } = storeToRefs(store);
+
   const isSubmitting = ref(false);
   const createdAdmin = ref<UserResponse | null>(null);
   const form = reactive<CreateAdminSchemaInput>({
@@ -35,6 +40,7 @@ export const useAdminManagement = () => {
 
       const created = await adminService.createAdmin(payload);
       createdAdmin.value = created;
+      store.prependAdmin(created);
       form.email = "";
       form.password = "";
       return created;
@@ -44,6 +50,15 @@ export const useAdminManagement = () => {
   };
 
   return {
+    admins,
+    adminsPagination: pagination,
+    adminsLoaded: loaded,
+    isAdminsLoading: isLoading,
+    loadAdmins: store.ensureAdmins,
+    refreshAdmins: store.revalidateAdmins,
+    updateAdminStatus: store.updateAdminStatus,
+    invalidateAdmins: store.invalidateAdmins,
+
     form,
     isSubmitting,
     createdAdmin,

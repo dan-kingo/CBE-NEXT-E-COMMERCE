@@ -29,7 +29,7 @@ const moderationStatusOptions: Array<{
     label: string;
     value: ReviewModerationStatus | "";
 }> = [
-        { label: "All", value: "" },
+        { label: "All moderation", value: "" },
         { label: "Pending", value: "PENDING" },
         { label: "Published", value: "PUBLISHED" },
         { label: "Rejected", value: "REJECTED" },
@@ -39,7 +39,7 @@ const visibilityStatusOptions: Array<{
     label: string;
     value: ReviewVisibilityStatus | "";
 }> = [
-        { label: "All", value: "" },
+        { label: "All visibility", value: "" },
         { label: "Visible", value: "VISIBLE" },
         { label: "Hidden", value: "HIDDEN" },
     ];
@@ -55,6 +55,7 @@ const isRejectDialogOpen = ref(false);
 const reviewPendingDecision = ref<ReviewResponse | null>(null);
 const rejectionReason = ref("");
 const decidingById = ref<Record<number, boolean>>({});
+const openActionMenuForId = ref<number | null>(null);
 
 const isInitialLoading = computed(
     () => isReviewsLoading.value && !reviewsLoaded.value,
@@ -124,6 +125,7 @@ const visibilityBadgeVariant = (status: ReviewVisibilityStatus) => {
 };
 
 const openRejectDialog = (review: ReviewResponse) => {
+    openActionMenuForId.value = null;
     reviewPendingDecision.value = review;
     rejectionReason.value = review.rejectionReason || "";
     isRejectDialogOpen.value = true;
@@ -183,6 +185,7 @@ const runDecision = async (
 };
 
 const publishReview = async (review: ReviewResponse) => {
+    openActionMenuForId.value = null;
     await runDecision(review, "PUBLISH");
 };
 
@@ -193,6 +196,28 @@ const submitRejectDecision = async () => {
 
     await runDecision(reviewPendingDecision.value, "REJECT", rejectionReason.value);
     closeRejectDialog();
+};
+
+const toggleActionMenu = (reviewId: number) => {
+    openActionMenuForId.value =
+        openActionMenuForId.value === reviewId ? null : reviewId;
+};
+
+const closeActionMenu = () => {
+    openActionMenuForId.value = null;
+};
+
+const handleDocumentClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+        return;
+    }
+
+    if (target.closest("[data-action-menu]")) {
+        return;
+    }
+
+    closeActionMenu();
 };
 
 const goToPreviousPage = async () => {
@@ -224,126 +249,190 @@ watch(
 );
 
 onMounted(async () => {
+    document.addEventListener("click", handleDocumentClick, true);
     await fetchReviews(reviewsLoaded.value ? reviewsPagination.value.page : 0);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("click", handleDocumentClick, true);
 });
 </script>
 
 <template>
     <section class="space-y-6">
         <div>
-            <h1 class="text-2xl font-semibold">Manage Reviews</h1>
-            <p class="text-sm text-muted-foreground">
+            <h1 class="text-2xl font-semibold mb-2">Manage Reviews</h1>
+            <p class="text-sm text-muted-foreground mb-6">
                 Moderate reviews using the admin review controller.
             </p>
         </div>
 
-        <Card class="px-6 py-4">
-            <div class="grid gap-3 md:grid-cols-4">
-                <div class="space-y-1">
-                    <Label for="review-moderation">Moderation</Label>
-                    <select id="review-moderation" v-model="filters.moderationStatus"
-                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <option v-for="item in moderationStatusOptions" :key="item.label" :value="item.value">
-                            {{ item.label }}
-                        </option>
-                    </select>
-                </div>
-
-                <div class="space-y-1">
-                    <Label for="review-visibility">Visibility</Label>
-                    <select id="review-visibility" v-model="filters.visibilityStatus"
-                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <option v-for="item in visibilityStatusOptions" :key="item.label" :value="item.value">
-                            {{ item.label }}
-                        </option>
-                    </select>
-                </div>
-
-                <div class="space-y-1">
-                    <Label for="review-store">Store ID</Label>
-                    <Input id="review-store" v-model="filters.storeId" placeholder="e.g. 12" />
-                </div>
-
-                <div class="space-y-1">
-                    <Label for="review-product">Product ID</Label>
-                    <Input id="review-product" v-model="filters.productId" placeholder="e.g. 305" />
-                </div>
-            </div>
-        </Card>
-
-        <Card class="px-6">
+        <Card class="w-full px-6 py-4">
             <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-medium">Review List</h2>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                        <Input id="review-store" v-model="filters.storeId" placeholder="Store ID" class="w-24 md:w-auto" />
+                        <Input id="review-product" v-model="filters.productId" placeholder="Product ID" class="w-28 md:w-auto" />
+
+                        <select id="review-moderation" v-model="filters.moderationStatus"
+                            class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                            <option v-for="item in moderationStatusOptions" :key="item.label" :value="item.value">
+                                {{ item.label }}
+                            </option>
+                        </select>
+
+                        <select id="review-visibility" v-model="filters.visibilityStatus"
+                            class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] hidden sm:block">
+                            <option v-for="item in visibilityStatusOptions" :key="item.label" :value="item.value">
+                                {{ item.label }}
+                            </option>
+                        </select>
+                    </div>
                 </div>
 
                 <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
                     Loading reviews...
                 </div>
 
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full border-collapse text-sm">
-                        <thead>
-                            <tr class="border-b text-left">
-                                <th class="py-2">Review</th>
-                                <th class="py-2">Rating</th>
-                                <th class="py-2">Status</th>
-                                <th class="py-2">Reports</th>
-                                <th class="py-2">Created</th>
-                                <th class="py-2">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="review in reviews" :key="review.id" class="border-b align-top">
-                                <td class="py-2">
-                                    <p class="font-medium">{{ review.title }}</p>
-                                    <p class="text-xs text-muted-foreground">
-                                        {{ review.authorName || `User #${review.userId}` }}
-                                    </p>
-                                    <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                        {{ review.comment }}
-                                    </p>
-                                    <p v-if="review.rejectionReason" class="mt-1 text-xs text-destructive">
-                                        Rejection reason: {{ review.rejectionReason }}
-                                    </p>
-                                </td>
-                                <td class="py-2">{{ review.rating }}/5</td>
-                                <td class="py-2 space-y-1">
+                <div v-else>
+                    <!-- Mobile View -->
+                    <div class="space-y-3 md:hidden">
+                        <div v-for="review in reviews" :key="`mobile-${review.id}`"
+                            class="space-y-3 rounded-lg border p-3">
+                            
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="truncate">
+                                    <p class="text-xs text-muted-foreground">Rating: {{ review.rating }}/5</p>
+                                    <p class="font-medium truncate">{{ review.title }}</p>
+                                    <p class="text-xs text-muted-foreground">By {{ review.authorName || `User #${review.userId}` }}</p>
+                                </div>
+                                
+                                <div class="flex flex-col items-end gap-1">
                                     <Badge :variant="moderationBadgeVariant(review.moderationStatus)">
                                         {{ review.moderationStatus }}
                                     </Badge>
-                                    <div>
-                                        <Badge :variant="visibilityBadgeVariant(review.visibilityStatus)">
-                                            {{ review.visibilityStatus }}
-                                        </Badge>
-                                    </div>
-                                </td>
-                                <td class="py-2">{{ review.reportCount }}</td>
-                                <td class="py-2">
-                                    {{ new Date(review.createdAt).toLocaleString() }}
-                                </td>
-                                <td class="py-2">
-                                    <div class="flex flex-wrap gap-2">
-                                        <Button v-if="review.moderationStatus !== 'PUBLISHED'" class="cursor-pointer"
-                                            size="sm" variant="outline" :disabled="decidingById[review.id]"
-                                            @click="publishReview(review)">
-                                            {{ decidingById[review.id] ? "Working..." : "Publish" }}
-                                        </Button>
-                                        <Button v-if="review.moderationStatus !== 'REJECTED'" class="cursor-pointer"
-                                            size="sm" variant="destructive" :disabled="decidingById[review.id]"
-                                            @click="openRejectDialog(review)">
-                                            Reject
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="!reviews.length">
-                                <td colspan="6" class="py-4 text-center text-muted-foreground">
-                                    No reviews found.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <Badge :variant="visibilityBadgeVariant(review.visibilityStatus)">
+                                        {{ review.visibilityStatus }}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <p class="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                                {{ review.comment }}
+                            </p>
+                            <p v-if="review.rejectionReason" class="mt-1 text-xs text-destructive">
+                                Rejected: {{ review.rejectionReason }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                Reports: {{ review.reportCount }} | {{ new Date(review.createdAt).toLocaleDateString() }}
+                            </p>
+
+                            <div class="flex justify-end gap-2 border-t pt-2">
+                                <Button v-if="review.moderationStatus !== 'PUBLISHED'" class="cursor-pointer"
+                                    size="sm" variant="outline" :disabled="decidingById[review.id]"
+                                    @click="publishReview(review)">
+                                    {{ decidingById[review.id] ? "Working..." : "Publish" }}
+                                </Button>
+                                <Button v-if="review.moderationStatus !== 'REJECTED'" class="cursor-pointer"
+                                    size="sm" variant="destructive" :disabled="decidingById[review.id]"
+                                    @click="openRejectDialog(review)">
+                                    Reject
+                                </Button>
+                            </div>
+                        </div>
+
+                        <p v-if="!reviews.length" class="py-4 text-center text-muted-foreground">
+                            No reviews found.
+                        </p>
+                    </div>
+
+                    <!-- Desktop View -->
+                    <div class="hidden overflow-x-auto md:block">
+                        <table class="w-full border-collapse text-sm">
+                            <thead>
+                                <tr class="border-b text-left">
+                                    <th class="py-2">Review</th>
+                                    <th class="py-2">Rating</th>
+                                    <th class="py-2">Status</th>
+                                    <th class="py-2">Reports</th>
+                                    <th class="py-2">Created</th>
+                                    <th class="py-2 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="review in reviews" :key="review.id" class="border-b align-top">
+                                    <td class="py-2 max-w-sm">
+                                        <p class="font-medium truncate">{{ review.title }}</p>
+                                        <p class="text-xs text-muted-foreground">
+                                            {{ review.authorName || `User #${review.userId}` }}
+                                        </p>
+                                        <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                            {{ review.comment }}
+                                        </p>
+                                        <p v-if="review.rejectionReason" class="mt-1 text-xs text-destructive">
+                                            Rejection reason: {{ review.rejectionReason }}
+                                        </p>
+                                    </td>
+                                    <td class="py-2 font-medium">{{ review.rating }}/5</td>
+                                    <td class="py-2 space-y-1">
+                                        <div>
+                                            <Badge :variant="moderationBadgeVariant(review.moderationStatus)">
+                                                {{ review.moderationStatus }}
+                                            </Badge>
+                                        </div>
+                                        <div>
+                                            <Badge :variant="visibilityBadgeVariant(review.visibilityStatus)">
+                                                {{ review.visibilityStatus }}
+                                            </Badge>
+                                        </div>
+                                    </td>
+                                    <td class="py-2">{{ review.reportCount }}</td>
+                                    <td class="py-2">
+                                        {{ new Date(review.createdAt).toLocaleDateString() }}
+                                    </td>
+                                    <td class="py-2 text-right">
+                                        <div class="relative inline-block" data-action-menu>
+                                            <Button
+                                                class="cursor-pointer"
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                @click="toggleActionMenu(review.id)"
+                                            >
+                                                <Icon name="lucide:ellipsis" class="size-4" />
+                                            </Button>
+
+                                            <div
+                                                v-if="openActionMenuForId === review.id"
+                                                class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg text-left"
+                                            >
+                                                <button
+                                                    v-if="review.moderationStatus !== 'PUBLISHED'"
+                                                    class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                                                    :disabled="decidingById[review.id]"
+                                                    @click="publishReview(review)"
+                                                >
+                                                    Publish
+                                                </button>
+                                                <button
+                                                    v-if="review.moderationStatus !== 'REJECTED'"
+                                                    class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-destructive/10 text-destructive cursor-pointer"
+                                                    :disabled="decidingById[review.id]"
+                                                    @click="openRejectDialog(review)"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-if="!reviews.length">
+                                    <td colspan="6" class="py-4 text-center text-muted-foreground">
+                                        No reviews found.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
                         <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
