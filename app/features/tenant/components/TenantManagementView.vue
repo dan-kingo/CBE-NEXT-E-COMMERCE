@@ -1,23 +1,117 @@
 <script setup lang="ts">
+import { useDebounceFn } from "@vueuse/core";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useTenantManagement } from "~/features/tenant/composables/useTenantManagement";
-import { getStatusBadgeClass, getTenantStatusTone } from "~/utils/status";
+import type {
+  TenantProfileStatus,
+  UserResponse,
+} from "~/features/tenant/types/tenant.types";
+import {
+  getStatusBadgeClass,
+  getStatusButtonClass,
+  getTenantProfileStatusTone,
+  getTenantStatusTone,
+} from "~/utils/status";
 
+interface TenantManagementViewProps {
+  mode?: "list" | "create";
+}
+
+const props = withDefaults(defineProps<TenantManagementViewProps>(), {
+  mode: "list",
+});
+
+const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 const { getMessageFromUnknown } = useApiError();
+
 const {
   tenants,
   isTenantsLoading,
   tenantsLoaded,
   tenantsPagination,
   loadTenants,
+  refreshTenants,
   createTenant,
+  updateTenantStatus,
 } = useTenantManagement();
 
+const form = reactive({
+  email: "",
+  password: "",
+  firstName: "",
+  lastName: "",
+  phoneNumber: "",
+});
+
+const currentPath = computed(() => route.path.replace(/\/$/, ""));
+const isListMode = computed(
+  () => props.mode === "list" || currentPath.value === "/dashboard/tenants",
+);
+const isCreateMode = computed(
+  () => props.mode === "create" || currentPath.value.endsWith("/create"),
+);
+
+const searchQuery = ref("");
+const statusFilter = ref<"all" | TenantProfileStatus>("all");
 const isSubmitting = ref(false);
+const openActionMenuForId = ref<string | null>(null);
+const isStatusDialogOpen = ref(false);
+const tenantPendingStatusUpdate = ref<UserResponse | null>(null);
+const selectedStatus = ref<TenantProfileStatus>("IN_REVIEW");
+
+const tenantStatuses: TenantProfileStatus[] = [
+  "IN_REVIEW",
+  "APPROVED",
+  "REJECTED",
+  "ACTIVE",
+  "INACTIVE",
+  "SUSPENDED",
+];
+
+const formatStatusLabel = (value: TenantProfileStatus) => {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const resolveTenantProfileStatus = (
+  tenant: UserResponse,
+): TenantProfileStatus => {
+  return tenant.status ?? (tenant.enabled ? "ACTIVE" : "INACTIVE");
+};
+
+const filteredTenants = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+
+  return tenants.value.filter((tenant) => {
+    const profileStatus = resolveTenantProfileStatus(tenant);
+    const matchesStatus =
+      statusFilter.value === "all" || profileStatus === statusFilter.value;
+
+    if (!matchesStatus) {
+      return false;
+    }
+
+    if (!q) {
+      return true;
+    }
+
+    const name = [tenant.firstName, tenant.lastName, tenant.fullName]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return tenant.email.toLowerCase().includes(q) || name.includes(q);
+  });
+});
+
 const isInitialLoading = computed(
   () => isTenantsLoading.value && !tenantsLoaded.value,
 );
+
 const pageSummary = computed(() => {
   if (!tenantsPagination.value.totalElements) {
     return "No tenants";
@@ -28,32 +122,43 @@ const pageSummary = computed(() => {
   return `Showing ${start}-${end} of ${tenantsPagination.value.totalElements}`;
 });
 
-const form = reactive({
-  email: "",
-  password: "",
-  firstName: "",
-  lastName: "",
-  phoneNumber: "",
-});
-
-const safeLoadTenants = async (
-  page = tenantsPagination.value.page,
-  force = false,
-) => {
-  const size =
-    tenantsPagination.value.size > 1
-      ? tenantsPagination.value.size
-      : DEFAULT_PAGE_SIZE;
-
+const loadTenantPage = async (page = 0, force = false) => {
   try {
     await loadTenants({
       force,
       page,
-      size,
+      size:
+        tenantsPagination.value.size > 1
+          ? tenantsPagination.value.size
+          : DEFAULT_PAGE_SIZE,
     });
   } catch (error) {
     toast.error({ message: getMessageFromUnknown(error) });
   }
+};
+
+const debouncedReload = useDebounceFn(() => {
+  if (!isListMode.value) {
+    return;
+  }
+
+  void loadTenantPage(0, true);
+}, 250);
+
+watch(searchQuery, () => {
+  debouncedReload();
+});
+
+const resetForm = () => {
+  form.email = "";
+  form.password = "";
+  form.firstName = "";
+  form.lastName = "";
+  form.phoneNumber = "";
+};
+
+const goToCreateTenant = async () => {
+  await router.push("/dashboard/tenants/create");
 };
 
 const submitTenant = async () => {
@@ -61,12 +166,8 @@ const submitTenant = async () => {
   try {
     await createTenant(form);
     toast.success({ message: "Tenant created successfully" });
-
-    form.email = "";
-    form.password = "";
-    form.firstName = "";
-    form.lastName = "";
-    form.phoneNumber = "";
+    resetForm();
+    await router.push("/dashboard/tenants");
   } catch (error) {
     toast.error({ message: getMessageFromUnknown(error) });
   } finally {
@@ -74,12 +175,76 @@ const submitTenant = async () => {
   }
 };
 
+const toggleActionMenu = (tenantId: string) => {
+  openActionMenuForId.value =
+    openActionMenuForId.value === tenantId ? null : tenantId;
+};
+
+const openStatusDialog = (tenant: UserResponse) => {
+  openActionMenuForId.value = null;
+  tenantPendingStatusUpdate.value = tenant;
+  selectedStatus.value = resolveTenantProfileStatus(tenant);
+  isStatusDialogOpen.value = true;
+};
+
+const closeStatusDialog = () => {
+  isStatusDialogOpen.value = false;
+  tenantPendingStatusUpdate.value = null;
+};
+
+const confirmStatusUpdate = async () => {
+  if (!tenantPendingStatusUpdate.value) {
+    return;
+  }
+
+  const tenant = tenantPendingStatusUpdate.value;
+  if (!tenant.tenantProfileId) {
+    toast.error({ message: "Tenant profile ID is missing for this account." });
+    return;
+  }
+
+  isSubmitting.value = true;
+  try {
+    await updateTenantStatus(
+      Number(tenant.tenantProfileId),
+      selectedStatus.value,
+    );
+    toast.success({ message: "Tenant status updated" });
+    void refreshTenants({
+      page: tenantsPagination.value.page,
+      size: tenantsPagination.value.size,
+    });
+    closeStatusDialog();
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+const closeActionMenu = () => {
+  openActionMenuForId.value = null;
+};
+
+const handleDocumentClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null;
+  if (!target) {
+    return;
+  }
+
+  if (target.closest("[data-action-menu]")) {
+    return;
+  }
+
+  closeActionMenu();
+};
+
 const goToPreviousPage = async () => {
   if (!tenantsPagination.value.hasPrevious || isTenantsLoading.value) {
     return;
   }
 
-  await safeLoadTenants(tenantsPagination.value.page - 1);
+  await loadTenantPage(tenantsPagination.value.page - 1);
 };
 
 const goToNextPage = async () => {
@@ -87,28 +252,346 @@ const goToNextPage = async () => {
     return;
   }
 
-  await safeLoadTenants(tenantsPagination.value.page + 1);
+  await loadTenantPage(tenantsPagination.value.page + 1);
 };
 
-onMounted(() => {
-  safeLoadTenants(tenantsLoaded.value ? tenantsPagination.value.page : 0);
+onMounted(async () => {
+  document.addEventListener("click", handleDocumentClick, true);
+
+  if (isListMode.value) {
+    await loadTenantPage(0, true);
+    return;
+  }
+
+  if (isCreateMode.value) {
+    resetForm();
+  }
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleDocumentClick, true);
 });
 </script>
 
 <template>
   <section class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold">Tenant Management</h1>
-      <p class="text-sm text-muted-foreground">
-        create and manage tenant accounts that can access the dashboard.
-      </p>
+    <Card v-if="isListMode" class="w-full px-6">
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-medium">Tenants</h2>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <Input
+              v-model="searchQuery"
+              placeholder="Search by email or name"
+              class="max-w-sm"
+            />
+
+            <select
+              v-model="statusFilter"
+              class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            >
+              <option value="all">All statuses</option>
+              <option
+                v-for="status in tenantStatuses"
+                :key="status"
+                :value="status"
+              >
+                {{ formatStatusLabel(status) }}
+              </option>
+            </select>
+
+            <Button class="cursor-pointer" @click="goToCreateTenant">
+              <Icon name="lucide:plus" class="size-4" />
+              Create Tenant
+            </Button>
+          </div>
+        </div>
+
+        <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
+          Loading tenants...
+        </div>
+
+        <div v-else>
+          <div class="space-y-3 md:hidden">
+            <div
+              v-for="tenant in filteredTenants"
+              :key="`mobile-${tenant.id}`"
+              class="space-y-3 rounded-lg border p-3"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs text-muted-foreground">Email</p>
+                  <p class="font-medium">{{ tenant.email }}</p>
+                </div>
+                <Badge
+                  variant="outline"
+                  :class="
+                    getStatusBadgeClass(
+                      getTenantProfileStatusTone(
+                        resolveTenantProfileStatus(tenant),
+                      ),
+                    )
+                  "
+                >
+                  {{ formatStatusLabel(resolveTenantProfileStatus(tenant)) }}
+                </Badge>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p class="text-xs text-muted-foreground">Name</p>
+                  <p>
+                    {{
+                      [
+                        tenant.fullName,
+                        tenant.firstName,
+                        tenant.lastName,
+                      ].filter(Boolean)[0] || "-"
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-xs text-muted-foreground">Account</p>
+                  <Badge
+                    variant="outline"
+                    :class="
+                      getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
+                    "
+                  >
+                    {{ tenant.enabled ? "Enabled" : "Disabled" }}
+                  </Badge>
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <div class="relative" data-action-menu>
+                  <Button
+                    class="cursor-pointer"
+                    size="icon-sm"
+                    variant="ghost"
+                    @click="toggleActionMenu(tenant.id)"
+                  >
+                    <Icon name="lucide:ellipsis" class="size-4" />
+                  </Button>
+
+                  <div
+                    v-if="openActionMenuForId === tenant.id"
+                    class="absolute left-0 bottom-full z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
+                  >
+                    <button
+                      class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                      @click="openStatusDialog(tenant)"
+                    >
+                      Change Status
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p
+              v-if="!filteredTenants.length"
+              class="py-4 text-center text-muted-foreground"
+            >
+              No tenants found.
+            </p>
+          </div>
+
+          <div class="hidden overflow-x-auto md:block">
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="border-b text-left">
+                  <th class="py-2">Email</th>
+                  <th class="py-2">Name</th>
+                  <th class="py-2">Status</th>
+                  <th class="py-2">Account</th>
+                  <th class="py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="tenant in filteredTenants"
+                  :key="tenant.id"
+                  class="border-b align-top"
+                >
+                  <td class="py-2 font-medium">{{ tenant.email }}</td>
+                  <td class="py-2 text-muted-foreground">
+                    {{
+                      [
+                        tenant.fullName,
+                        tenant.firstName,
+                        tenant.lastName,
+                      ].filter(Boolean)[0] || "-"
+                    }}
+                  </td>
+                  <td class="py-2">
+                    <Badge
+                      variant="outline"
+                      :class="
+                        getStatusBadgeClass(
+                          getTenantProfileStatusTone(
+                            resolveTenantProfileStatus(tenant),
+                          ),
+                        )
+                      "
+                    >
+                      {{
+                        formatStatusLabel(resolveTenantProfileStatus(tenant))
+                      }}
+                    </Badge>
+                  </td>
+                  <td class="py-2">
+                    <Badge
+                      variant="outline"
+                      :class="
+                        getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
+                      "
+                    >
+                      {{ tenant.enabled ? "Enabled" : "Disabled" }}
+                    </Badge>
+                  </td>
+                  <td class="py-2">
+                    <div class="relative" data-action-menu>
+                      <Button
+                        class="cursor-pointer"
+                        size="icon-sm"
+                        variant="ghost"
+                        @click="toggleActionMenu(tenant.id)"
+                      >
+                        <Icon name="lucide:ellipsis" class="size-4" />
+                      </Button>
+
+                      <div
+                        v-if="openActionMenuForId === tenant.id"
+                        class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
+                      >
+                        <button
+                          class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                          @click="openStatusDialog(tenant)"
+                        >
+                          Change Status
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!filteredTenants.length">
+                  <td
+                    colspan="5"
+                    class="py-4 text-center text-muted-foreground"
+                  >
+                    No tenants found.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
+            <div class="flex items-center gap-2">
+              <Button
+                class="cursor-pointer"
+                size="sm"
+                variant="outline"
+                :disabled="!tenantsPagination.hasPrevious || isTenantsLoading"
+                @click="goToPreviousPage"
+              >
+                Previous
+              </Button>
+              <p class="text-xs text-muted-foreground">
+                Page {{ tenantsPagination.page + 1 }} of
+                {{ Math.max(tenantsPagination.totalPages, 1) }}
+              </p>
+              <Button
+                class="cursor-pointer"
+                size="sm"
+                variant="outline"
+                :disabled="!tenantsPagination.hasNext || isTenantsLoading"
+                @click="goToNextPage"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+
+    <div
+      v-if="isStatusDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      @click.self="closeStatusDialog"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tenant-status-title"
+        class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
+      >
+        <h3 id="tenant-status-title" class="text-lg font-semibold">
+          Update tenant status
+        </h3>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Set a new status for
+          <span class="font-medium text-foreground">
+            {{ tenantPendingStatusUpdate?.email }}
+          </span>
+          .
+        </p>
+
+        <div class="mt-4 space-y-2">
+          <Label for="tenant-status">Status</Label>
+          <select
+            id="tenant-status"
+            v-model="selectedStatus"
+            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          >
+            <option
+              v-for="status in tenantStatuses"
+              :key="status"
+              :value="status"
+            >
+              {{ formatStatusLabel(status) }}
+            </option>
+          </select>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-2">
+          <Button
+            class="cursor-pointer"
+            variant="outline"
+            @click="closeStatusDialog"
+          >
+            Cancel
+          </Button>
+          <Button
+            class="cursor-pointer"
+            :class="
+              getStatusButtonClass(getTenantProfileStatusTone(selectedStatus))
+            "
+            :disabled="isSubmitting"
+            @click="confirmStatusUpdate"
+          >
+            {{ isSubmitting ? "Updating..." : "Update Status" }}
+          </Button>
+        </div>
+      </div>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
-      <Card class="lg:col-span-1 px-6 self-start">
-        <div class="space-y-4">
+    <Card v-if="!isListMode" class="w-full px-6">
+      <div class="space-y-4">
+        <div>
           <h2 class="text-lg font-medium">Create Tenant</h2>
+          <p class="text-sm text-muted-foreground">
+            Add a new tenant account that can access the dashboard.
+          </p>
+        </div>
 
+        <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
             <Label for="tenant-email">Email</Label>
             <Input
@@ -146,7 +629,7 @@ onMounted(() => {
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 md:col-span-2">
             <Label for="tenant-phone">Phone Number</Label>
             <Input
               id="tenant-phone"
@@ -154,94 +637,25 @@ onMounted(() => {
               placeholder="+2519xxxxxxx"
             />
           </div>
+        </div>
 
+        <div class="flex items-center gap-2">
           <Button
-            class="w-full cursor-pointer"
+            class="cursor-pointer"
+            variant="outline"
+            @click="router.push('/dashboard/tenants')"
+          >
+            Cancel
+          </Button>
+          <Button
+            class="cursor-pointer"
             :disabled="isSubmitting"
             @click="submitTenant"
           >
             {{ isSubmitting ? "Creating..." : "Create Tenant" }}
           </Button>
         </div>
-      </Card>
-
-      <Card class="lg:col-span-2 px-6">
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-medium">Tenant List</h2>
-          </div>
-
-          <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
-            Loading tenants...
-          </div>
-
-          <div v-else class="overflow-x-auto">
-            <table class="w-full border-collapse text-sm">
-              <thead>
-                <tr class="border-b text-left">
-                  <th class="py-2">Email</th>
-                  <th class="py-2">Name</th>
-                  <th class="py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="tenant in tenants" :key="tenant.id" class="border-b">
-                  <td class="py-2">{{ tenant.email }}</td>
-                  <td class="py-2">
-                    {{ [tenant.fullName].filter(Boolean).join(" ") || "-" }}
-                  </td>
-                  <td class="py-2">
-                    <Badge
-                      variant="outline"
-                      :class="
-                        getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
-                      "
-                    >
-                      {{ tenant.enabled ? "Enabled" : "Disabled" }}
-                    </Badge>
-                  </td>
-                </tr>
-                <tr v-if="!tenants.length">
-                  <td
-                    colspan="4"
-                    class="py-4 text-center text-muted-foreground"
-                  >
-                    No tenants yet.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
-              <div class="flex items-center gap-2">
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="!tenantsPagination.hasPrevious || isTenantsLoading"
-                  @click="goToPreviousPage"
-                >
-                  Previous
-                </Button>
-                <p class="text-xs text-muted-foreground">
-                  Page {{ tenantsPagination.page + 1 }} of
-                  {{ Math.max(tenantsPagination.totalPages, 1) }}
-                </p>
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="!tenantsPagination.hasNext || isTenantsLoading"
-                  @click="goToNextPage"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   </section>
 </template>

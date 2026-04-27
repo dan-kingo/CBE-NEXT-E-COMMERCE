@@ -7,5 +7,5 @@ definePageMeta({
 </script>
 
 <template>
-  <TenantManagementView />
+  <TenantManagementView mode="list" />
 </template>

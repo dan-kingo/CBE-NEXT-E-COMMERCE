@@ -5,6 +5,7 @@ import {
 } from "~/features/tenant/schemas/tenant.schema";
 import { tenantService } from "~/features/tenant/services/tenant.service";
 import { useTenantStore } from "~/features/tenant/store/tenant.store";
+import type { TenantProfileStatus } from "~/features/tenant/types/tenant.types";
 
 export const useTenantManagement = () => {
   const store = useTenantStore();
@@ -49,6 +50,7 @@ export const useTenantManagement = () => {
     tenantsPagination: pagination,
     loadTenants: store.ensureTenants,
     refreshTenants: store.revalidateTenants,
+    updateTenantStatus: store.updateTenantStatus,
     createTenant,
   };
 };

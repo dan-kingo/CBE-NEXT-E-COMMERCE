@@ -1,5 +1,13 @@
 export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN";
 
+export type TenantProfileStatus =
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "ACTIVE"
+  | "INACTIVE"
+  | "SUSPENDED";
+
 export interface CreateTenantRequest {
   email: string;
   password: string;
@@ -23,6 +31,11 @@ export interface UserResponse {
   lastName?: string;
   phoneNumber?: string;
   fullName?: string;
+  status?: TenantProfileStatus;
+}
+
+export interface UpdateTenantStatusRequest {
+  status: TenantProfileStatus;
 }
 
 export interface ApiStatus {

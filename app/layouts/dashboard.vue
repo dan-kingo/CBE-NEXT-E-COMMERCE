@@ -20,7 +20,9 @@ const toDashboardPath = (path: string) => {
     normalized === "/categories" ||
     normalized.startsWith("/categories/") ||
     normalized === "/subscriptions" ||
-    normalized.startsWith("/subscriptions/")
+    normalized.startsWith("/subscriptions/") ||
+    normalized === "/tenants" ||
+    normalized.startsWith("/tenants/")
   ) {
     return `/dashboard${normalized}`;
   }
@@ -76,7 +78,8 @@ const breadcrumbItems = computed(() => {
 
   if (
     currentPath.startsWith("/dashboard/categories/") ||
-    currentPath.startsWith("/dashboard/subscriptions/")
+    currentPath.startsWith("/dashboard/subscriptions/") ||
+    currentPath.startsWith("/dashboard/tenants/")
   ) {
     const segments = currentPath.split("/").filter(Boolean);
     const lastSegment = segments[segments.length - 1];

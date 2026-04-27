@@ -1,4 +1,11 @@
 export type StatusTone = "success" | "warning" | "danger";
+export type TenantProfileStatus =
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "ACTIVE"
+  | "INACTIVE"
+  | "SUSPENDED";
 
 const statusBadgeClasses: Record<StatusTone, string> = {
   success:
@@ -32,4 +39,18 @@ export const getPlanToggleTone = (active: boolean): StatusTone => {
 
 export const getTenantStatusTone = (enabled: boolean): StatusTone => {
   return enabled ? "success" : "danger";
+};
+
+export const getTenantProfileStatusTone = (
+  status: TenantProfileStatus,
+): StatusTone => {
+  if (status === "APPROVED" || status === "ACTIVE") {
+    return "success";
+  }
+
+  if (status === "IN_REVIEW") {
+    return "warning";
+  }
+
+  return "danger";
 };

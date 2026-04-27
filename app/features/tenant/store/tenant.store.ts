@@ -5,6 +5,7 @@ import type {
   ListQueryParams,
   PaginatedListResult,
   PaginationMeta,
+  TenantProfileStatus,
   UserResponse,
 } from "~/features/tenant/types/tenant.types";
 
@@ -200,6 +201,35 @@ export const useTenantStore = defineStore("tenant", {
           empty: false,
         },
       };
+    },
+
+    patchTenant(updated: UserResponse) {
+      this.tenants = this.tenants.map((tenant) =>
+        tenant.id === updated.id ? { ...tenant, ...updated } : tenant,
+      );
+
+      const currentKey = getCacheKey(
+        this.pagination.page,
+        this.pagination.size,
+      );
+      const currentCached = this.pageCache[currentKey];
+      if (currentCached) {
+        this.pageCache[currentKey] = {
+          ...currentCached,
+          content: currentCached.content.map((tenant) =>
+            tenant.id === updated.id ? { ...tenant, ...updated } : tenant,
+          ),
+        };
+      }
+    },
+
+    async updateTenantStatus(
+      tenantProfileId: number,
+      status: TenantProfileStatus,
+    ) {
+      const updated = await tenantService.updateStatus(tenantProfileId, status);
+      this.patchTenant(updated);
+      return updated;
     },
 
     invalidateTenants() {
