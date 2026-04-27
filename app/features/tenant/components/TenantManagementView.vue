@@ -353,17 +353,6 @@ onBeforeUnmount(() => {
                     }}
                   </p>
                 </div>
-                <div>
-                  <p class="text-xs text-muted-foreground">Account</p>
-                  <Badge
-                    variant="outline"
-                    :class="
-                      getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
-                    "
-                  >
-                    {{ tenant.enabled ? "Enabled" : "Disabled" }}
-                  </Badge>
-                </div>
               </div>
 
               <div class="flex justify-end">
@@ -407,7 +396,6 @@ onBeforeUnmount(() => {
                   <th class="py-2">Email</th>
                   <th class="py-2">Name</th>
                   <th class="py-2">Status</th>
-                  <th class="py-2">Account</th>
                   <th class="py-2">Actions</th>
                 </tr>
               </thead>
@@ -444,16 +432,6 @@ onBeforeUnmount(() => {
                     </Badge>
                   </td>
                   <td class="py-2">
-                    <Badge
-                      variant="outline"
-                      :class="
-                        getStatusBadgeClass(getTenantStatusTone(tenant.enabled))
-                      "
-                    >
-                      {{ tenant.enabled ? "Enabled" : "Disabled" }}
-                    </Badge>
-                  </td>
-                  <td class="py-2">
                     <div class="relative" data-action-menu>
                       <Button
                         class="cursor-pointer"
@@ -480,7 +458,7 @@ onBeforeUnmount(() => {
                 </tr>
                 <tr v-if="!filteredTenants.length">
                   <td
-                    colspan="5"
+                    colspan="4"
                     class="py-4 text-center text-muted-foreground"
                   >
                     No tenants found.
