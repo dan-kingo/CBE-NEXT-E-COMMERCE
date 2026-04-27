@@ -39,10 +39,26 @@ const {
   resetForm,
 } = useSubscriptionManagement();
 
-const isListMode = computed(() => props.mode === "list");
-const isEditMode = computed(() => props.mode === "edit");
+const currentPath = computed(() => route.path.replace(/\/$/, ""));
+
+const isListMode = computed(
+  () =>
+    props.mode === "list" || currentPath.value === "/dashboard/subscriptions",
+);
+
+const isCreateMode = computed(
+  () => props.mode === "create" || currentPath.value.endsWith("/create"),
+);
+
+const isEditMode = computed(
+  () => props.mode === "edit" || currentPath.value.endsWith("/edit"),
+);
 
 const editingPlanId = computed(() => {
+  if (!isEditMode.value) {
+    return "";
+  }
+
   if (props.planId) {
     return props.planId;
   }
@@ -231,6 +247,11 @@ onMounted(async () => {
     return;
   }
 
+  if (isCreateMode.value) {
+    resetForm();
+    return;
+  }
+
   const plan = await resolvePlanForEdit();
   if (!plan) {
     toast.error({ message: "Subscription plan not found." });
@@ -261,7 +282,6 @@ onBeforeUnmount(() => {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-medium">Subscription Plans</h2>
-            
           </div>
 
           <div class="flex items-center gap-3">
@@ -318,7 +338,7 @@ onBeforeUnmount(() => {
                   <p>{{ plan.durationDays }} days</p>
                 </div>
                 <div>
-                  <p class="text-xs text-muted-foreground">Updated</p>
+                  <p class="text-xs text-muted-foreground">Created</p>
                   <p>{{ formatDate(plan.updatedAt) }}</p>
                 </div>
                 <div>
@@ -369,7 +389,7 @@ onBeforeUnmount(() => {
                   <th class="py-2">Price</th>
                   <th class="py-2">Duration</th>
                   <th class="py-2">Status</th>
-                  <th class="py-2">Updated</th>
+                  <th class="py-2">Created</th>
                   <th class="py-2">Actions</th>
                 </tr>
               </thead>
@@ -397,7 +417,7 @@ onBeforeUnmount(() => {
                     </Badge>
                   </td>
                   <td class="py-2 text-muted-foreground">
-                    {{ formatDate(plan.updatedAt) }}
+                    {{ formatDate(plan.createdAt) }}
                   </td>
                   <td class="py-2">
                     <div class="relative" data-action-menu>
