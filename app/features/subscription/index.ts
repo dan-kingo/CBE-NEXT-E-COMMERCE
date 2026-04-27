@@ -4,9 +4,14 @@ export { useSubscriptionStore } from "~/features/subscription/store/subscription
 export { subscriptionService } from "~/features/subscription/services/subscription.service";
 export {
   createSubscriptionPlanSchema,
+  updateSubscriptionPlanSchema,
   type CreateSubscriptionPlanInput,
+  type UpdateSubscriptionPlanInput,
 } from "~/features/subscription/schemas/subscription.schema";
 export type {
   CreatePlanRequest,
+  SubscriptionPlanQueryRequest,
+  SubscriptionPlanStats,
   SubscriptionPlan,
+  UpdatePlanRequest,
 } from "~/features/subscription/types/subscription.types";

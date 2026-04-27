@@ -3,13 +3,30 @@ import { useSubscriptionStore } from "~/features/subscription/store/subscription
 
 export const useSubscriptionManagement = () => {
   const store = useSubscriptionStore();
-  const { isSubmitting, createdPlans, form } = storeToRefs(store);
+  const {
+    isLoading,
+    isSubmitting,
+    plans,
+    pagination,
+    statsByPlanId,
+    searchQuery,
+    activeFilter,
+    form,
+  } = storeToRefs(store);
 
   return {
+    isLoading,
     isSubmitting,
-    createdPlans,
+    plans,
+    pagination,
+    statsByPlanId,
+    searchQuery,
+    activeFilter,
     form,
+    loadPlans: store.loadPlans,
     createPlan: store.createPlan,
+    updatePlan: store.updatePlan,
+    loadPlanStats: store.loadPlanStats,
     resetForm: store.resetForm,
   };
 };

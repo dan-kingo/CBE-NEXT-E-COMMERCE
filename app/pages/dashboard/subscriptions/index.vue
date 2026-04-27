@@ -2,10 +2,10 @@
 import { SubscriptionManagementView } from "~/features/subscription";
 
 definePageMeta({
-    layout: "dashboard",
+  layout: "dashboard",
 });
 </script>
 
 <template>
-    <SubscriptionManagementView />
+  <SubscriptionManagementView mode="list" />
 </template>
