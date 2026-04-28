@@ -42,8 +42,8 @@ const handleMenuNavigation = () => {
 
 <template>
     <Sidebar collapsible="icon" variant="sidebar"
-        class="m-3 h-[calc(100vh-1.5rem)] rounded-3xl border border-white/70 bg-white/90 p-2 shadow-sm backdrop-blur md:m-4 md:h-[calc(100vh-2rem)] md:p-3">
-        <SidebarHeader class="border-b border-border/60 pb-3">
+        class="m-3 h-[calc(100vh-1.5rem)] rounded-3xl border border-border/70 bg-sidebar/95 p-2 text-sidebar-foreground shadow-sm backdrop-blur transition-colors duration-300 md:m-4 md:h-[calc(100vh-2rem)] md:p-3 dark:border-white/10 dark:bg-slate-950/90">
+        <SidebarHeader class="border-b border-border/60 pb-3 dark:border-white/10">
             <div
                 class="flex items-center gap-3 px-3 py-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
                 <div
@@ -75,7 +75,7 @@ const handleMenuNavigation = () => {
             </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter class="border-t border-border/60 pt-3">
+        <SidebarFooter class="border-t border-border/60 pt-3 dark:border-white/10">
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton class="group-data-[collapsible=icon]:justify-center min-h-12 rounded-xl px-3">
@@ -85,7 +85,7 @@ const handleMenuNavigation = () => {
                             {{ profileInitials }}
                         </div>
                         <div class="group-data-[collapsible=icon]:hidden text-left">
-                            <p class="text-base font-medium leading-none">
+                            <p class="text-base font-medium leading-none text-sidebar-foreground">
                                 {{ profile?.firstName || 'Admin' }} {{ profile?.lastName || 'One' }}
                             </p>
                             <p class="text-sm text-muted-foreground">{{ profile?.email || 'admin@example.com' }}</p>

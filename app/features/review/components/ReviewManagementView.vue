@@ -262,9 +262,9 @@ onBeforeUnmount(() => {
 
         <Card class="w-full px-6">
             <div class="space-y-4">
-                <div class="rounded-2xl bg-white p-4 shadow-sm">
+                <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
                     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <h2 class="text-2xl font-semibold">Reviews</h2>
+                        <h2 class="text-2xl font-semibold text-foreground">Reviews</h2>
 
                         <div class="flex flex-wrap items-center gap-3 md:justify-end">
                             <select id="review-moderation" v-model="filters.moderationStatus"
@@ -341,7 +341,8 @@ onBeforeUnmount(() => {
 
                     <!-- Desktop View -->
                     <div class="hidden overflow-x-auto md:block">
-                        <table class="w-full overflow-hidden rounded-lg border-collapse bg-white text-sm shadow-sm">
+                        <table
+                            class="w-full overflow-hidden rounded-lg border-collapse bg-card text-sm text-card-foreground shadow-sm transition-colors duration-300">
                             <thead class="bg-muted/20">
                                 <tr class="text-left">
                                     <th class="px-4 py-3 text-sm text-muted-foreground">Review</th>
@@ -442,7 +443,7 @@ onBeforeUnmount(() => {
         <div v-if="isRejectDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
             @click.self="closeRejectDialog">
             <div role="dialog" aria-modal="true" aria-labelledby="reject-review-title"
-                class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+                class="w-full max-w-md rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-lg transition-colors duration-300">
                 <h3 id="reject-review-title" class="text-lg font-semibold">Reject review</h3>
                 <p class="mt-2 text-sm text-muted-foreground">
                     Provide a reason for rejecting

@@ -168,13 +168,17 @@ const handleLogout = async () => {
 </script>
 
 <template>
-    <SidebarProvider class="bg-[#eef0f4]">
+    <SidebarProvider
+        class="relative min-h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
+        <div
+            class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(149,41,142,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(0,220,130,0.08),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(193,91,239,0.20),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(0,220,130,0.10),transparent_32%),linear-gradient(180deg,rgba(9,12,24,1)_0%,rgba(4,6,12,1)_100%)]" />
+
         <DashboardSidebar />
 
         <SidebarInset
-            class="min-h-screen bg-transparent font-brand px-3 pb-3 pt-3 md:px-4 md:pb-4 md:pt-4 ml-6 md:ml-8">
+            class="relative z-10 min-h-screen bg-transparent font-brand px-3 pb-3 pt-3 transition-colors duration-300 md:px-4 md:pb-4 md:pt-4 ml-6 md:ml-8">
             <header
-                class="sticky top-3 z-20 flex h-18 items-center justify-between gap-3 rounded-2xl border border-white/70 bg-white/85 px-5 shadow-sm backdrop-blur">
+                class="sticky top-3 z-20 flex h-18 items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/85 px-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur transition-colors duration-300 dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_16px_36px_rgba(0,0,0,0.45)]">
                 <div class="flex min-w-0 items-center gap-3">
                     <SidebarTrigger class="cursor-pointer rounded-lg border border-border/70 p-1.5 hover:bg-muted" />
 
@@ -194,32 +198,36 @@ const handleLogout = async () => {
                     </div>
                 </div>
 
-                <div ref="profileMenuRef" class="relative">
-                    <Button variant="ghost"
-                        class="h-12 rounded-full border border-border/60 bg-white px-2 pr-3 cursor-pointer shadow-sm"
-                        @click="isProfileMenuOpen = !isProfileMenuOpen">
-                        <span
-                            class="flex size-9 items-center justify-center rounded-full bg-brand/20 text-sm font-semibold text-brand/80">
-                            {{ profileInitials }}
-                        </span>
-                        <ChevronDown class="size-5 text-muted-foreground transition-transform"
-                            :class="isProfileMenuOpen ? 'rotate-180' : ''" />
-                    </Button>
+                <div class="flex items-center gap-3">
+                    <ThemeModeToggle class="hidden lg:inline-flex" />
 
-                    <div v-if="isProfileMenuOpen"
-                        class="absolute right-0 top-full z-20 mt-2 w-72 rounded-2xl border border-border/80 bg-background p-4 shadow-lg">
-                        <div class="mb-3 border-b pb-3">
-                            <p class="text-base font-semibold text-foreground">
-                                {{ adminName }}
-                            </p>
-                            <p class="text-sm text-muted-foreground">{{ adminEmail }}</p>
-                        </div>
-
-                        <Button variant="outline" class="w-full justify-start cursor-pointer"
-                            @click.prevent="handleLogout">
-                            <Icon name="lucide:log-out" />
-                            Logout
+                    <div ref="profileMenuRef" class="relative">
+                        <Button variant="ghost"
+                            class="h-12 cursor-pointer rounded-full border border-border/60 bg-background px-2 pr-3 shadow-sm transition-colors duration-300 dark:bg-slate-950/90"
+                            @click="isProfileMenuOpen = !isProfileMenuOpen">
+                            <span
+                                class="flex size-9 items-center justify-center rounded-full bg-brand/20 text-sm font-semibold text-brand/80">
+                                {{ profileInitials }}
+                            </span>
+                            <ChevronDown class="size-5 text-muted-foreground transition-transform"
+                                :class="isProfileMenuOpen ? 'rotate-180' : ''" />
                         </Button>
+
+                        <div v-if="isProfileMenuOpen"
+                            class="absolute right-0 top-full z-20 mt-2 w-72 rounded-2xl border border-border/80 bg-background p-4 shadow-lg transition-colors duration-300 dark:border-white/10 dark:bg-slate-950">
+                            <div class="mb-3 border-b border-border/70 pb-3 dark:border-white/10">
+                                <p class="text-base font-semibold text-foreground">
+                                    {{ adminName }}
+                                </p>
+                                <p class="text-sm text-muted-foreground">{{ adminEmail }}</p>
+                            </div>
+
+                            <Button variant="outline" class="w-full cursor-pointer justify-start"
+                                @click.prevent="handleLogout">
+                                <Icon name="lucide:log-out" />
+                                Logout
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </header>

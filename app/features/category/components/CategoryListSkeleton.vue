@@ -1,6 +1,7 @@
 <template>
     <div class="pb-10 space-y-4">
-        <div class="overflow-hidden rounded-lg border border-border/60 bg-white shadow-sm">
+        <div
+            class="overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm transition-colors duration-300">
             <div class="grid grid-cols-4 gap-4 border-b border-border/60 bg-muted/20 px-4 py-3">
                 <Skeleton class="h-4 w-24 rounded-lg" />
                 <Skeleton class="h-4 w-16 rounded-lg" />

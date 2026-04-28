@@ -395,10 +395,10 @@ onBeforeUnmount(() => {
     <section class="space-y-6">
         <Card v-if="isListMode" class="w-full px-6">
             <div class="space-y-4">
-                <div class="rounded-2xl bg-white p-4 shadow-sm">
+                <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div class="flex items-center gap-3">
-                            <h2 class="text-2xl font-semibold">Category List</h2>
+                            <h2 class="text-2xl font-semibold text-foreground">Category List</h2>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-3">
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
                                 <p class="text-xs text-muted-foreground">Category</p>
                                 <p class="font-medium" :style="{ paddingLeft: `${row.depth * 12}px` }">
                                     <button v-if="row.hasChildren" type="button"
-                                        class="inline-flex items-center gap-1 text-left"
+                                        class="inline-flex cursor-pointer items-center gap-1 text-left"
                                         @click="toggleCategory(row.category.id)">
                                         <Icon :name="row.isExpanded
                                             ? 'lucide:chevron-down'
@@ -439,7 +439,7 @@ onBeforeUnmount(() => {
                                             " class="size-4 text-muted-foreground" />
                                         {{ row.category.name }}
                                     </button>
-                                    <span v-else class="inline-flex items-center gap-1">
+                                    <span v-else class="inline-flex cursor-pointer items-center gap-1">
                                         <Icon name="lucide:file" class="size-4 text-muted-foreground" />
                                         {{ row.category.name }}
                                     </span>
@@ -487,7 +487,8 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="hidden overflow-x-auto md:block">
-                        <table class="w-full border-collapse text-sm rounded-lg overflow-hidden bg-white shadow-sm">
+                        <table
+                            class="w-full overflow-hidden rounded-lg border-collapse bg-card text-sm text-card-foreground shadow-sm transition-colors duration-300">
                             <thead class="bg-muted/20">
                                 <tr class="text-left">
                                     <th class="py-3 px-4 text-sm text-muted-foreground">Name</th>
@@ -570,7 +571,7 @@ onBeforeUnmount(() => {
 
         <Card v-else class="w-full px-6">
             <div class="space-y-4">
-                <div class="rounded-2xl bg-white p-4 shadow-sm">
+                <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
                     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                         <div class="space-y-1">
                             <h2 class="text-2xl font-semibold">
@@ -583,7 +584,8 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
 
-                <div class="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+                <div
+                    class="rounded-2xl border border-border/60 bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
                     <div class="space-y-4">
                         <div class="space-y-2">
                             <Label for="category-name">Name</Label>
@@ -637,7 +639,7 @@ onBeforeUnmount(() => {
         <div v-if="isDeleteDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
             @click.self="closeDeleteDialog">
             <div role="dialog" aria-modal="true" aria-labelledby="delete-category-title"
-                class="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+                class="w-full max-w-md rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-lg transition-colors duration-300">
                 <h3 id="delete-category-title" class="text-lg font-semibold">
                     Delete category?
                 </h3>
@@ -645,7 +647,7 @@ onBeforeUnmount(() => {
                     This will permanently delete
                     <span class="font-medium text-foreground">{{
                         categoryPendingDelete?.name
-                    }}</span>. This action cannot be undone.
+                        }}</span>. This action cannot be undone.
                 </p>
 
                 <div class="mt-6 flex justify-end gap-2">

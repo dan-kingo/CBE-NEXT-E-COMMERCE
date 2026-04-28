@@ -278,10 +278,10 @@ onBeforeUnmount(() => {
   <section class="space-y-6">
     <Card v-if="isListMode" class="w-full px-6">
       <div class="space-y-4">
-        <div class="rounded-2xl bg-white p-4 shadow-sm">
+        <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 class="text-2xl font-semibold">Tenants</h2>
+              <h2 class="text-2xl font-semibold text-foreground">Tenants</h2>
             </div>
 
             <div class="flex items-center gap-3">
@@ -361,7 +361,8 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="hidden overflow-x-auto md:block">
-            <table class="w-full overflow-hidden rounded-lg border-collapse bg-white text-sm shadow-sm">
+            <table
+              class="w-full overflow-hidden rounded-lg border-collapse bg-card text-sm text-card-foreground shadow-sm transition-colors duration-300">
               <thead class="bg-muted/20">
                 <tr class="text-left">
                   <th class="px-4 py-3 text-sm text-muted-foreground">Email</th>
@@ -481,14 +482,15 @@ onBeforeUnmount(() => {
 
     <Card v-if="!isListMode" class="w-full px-6">
       <div class="space-y-4">
-        <div class="rounded-2xl bg-white p-4 shadow-sm">
+        <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <h2 class="text-2xl font-semibold">Create Tenant</h2>
           <p class="text-sm text-muted-foreground">
             Add a new tenant account that can access the dashboard.
           </p>
         </div>
 
-        <div class="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+        <div
+          class="rounded-2xl border border-border/60 bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
               <Label for="tenant-email">Email</Label>

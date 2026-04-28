@@ -195,11 +195,11 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-6">
     <div v-if="isListMode">
-      
+
 
       <Card class="w-full px-6">
         <div class="space-y-4">
-          <div class="rounded-2xl bg-white p-4 shadow-sm">
+          <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
@@ -271,7 +271,8 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="hidden overflow-x-auto md:block">
-              <table class="w-full overflow-hidden rounded-lg border-collapse bg-white text-sm shadow-sm">
+              <table
+                class="w-full overflow-hidden rounded-lg border-collapse bg-card text-sm text-card-foreground shadow-sm transition-colors duration-300">
                 <thead class="bg-muted/20">
                   <tr class="text-left">
                     <th class="px-4 py-3 text-sm text-muted-foreground">Email</th>
@@ -345,16 +346,17 @@ onBeforeUnmount(() => {
 
     <Card v-if="!isListMode" class="w-full px-6">
       <div class="space-y-4">
-        <div class="rounded-2xl bg-white p-4 shadow-sm">
+        <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <div class="space-y-1">
-            <h2 class="text-2xl font-semibold">Create Admin</h2>
+            <h2 class="text-2xl font-semibold text-foreground">Create Admin</h2>
             <p class="text-sm text-muted-foreground">
               Create an admin account that can access the dashboard.
             </p>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+        <div
+          class="rounded-2xl border border-border/60 bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <div class="space-y-4">
             <div class="space-y-2">
               <Label for="bootstrap-email">Email</Label>
