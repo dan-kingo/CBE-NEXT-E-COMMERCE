@@ -17,6 +17,8 @@ const toDashboardPath = (path: string) => {
   const normalized = normalizePath(path);
 
   if (
+    normalized === "/admin" ||
+    normalized.startsWith("/admin/") ||
     normalized === "/categories" ||
     normalized.startsWith("/categories/") ||
     normalized === "/subscriptions" ||
@@ -77,6 +79,7 @@ const breadcrumbItems = computed(() => {
   }
 
   if (
+    currentPath.startsWith("/dashboard/admin/") ||
     currentPath.startsWith("/dashboard/categories/") ||
     currentPath.startsWith("/dashboard/subscriptions/") ||
     currentPath.startsWith("/dashboard/tenants/")

@@ -393,45 +393,43 @@ onBeforeUnmount(() => {
       </Card>
     </div>
 
-    <div v-if="!isListMode">
-      <div class="mb-6">
-        <h2 class="text-2xl font-semibold">Create Admin</h2>
-        <p class="text-sm text-muted-foreground">
-          Create an admin account that can access the dashboard.
-        </p>
-      </div>
-
-      <Card class="max-w-xl px-6 py-4">
-        <div class="space-y-4">
-          <div class="space-y-2">
-            <Label for="bootstrap-email">Email</Label>
-            <Input id="bootstrap-email" v-model="form.email" placeholder="admin@company.com" />
-          </div>
-
-          <div class="space-y-2">
-            <Label for="bootstrap-password">Password</Label>
-            <Input id="bootstrap-password" v-model="form.password" type="password"
-              placeholder="At least 8 chars" />
-          </div>
-
-          <div class="flex items-center gap-2 pt-2">
-            <Button
-              class="cursor-pointer w-full"
-              variant="outline"
-              @click="router.push('/dashboard/admin')"
-            >
-              Cancel
-            </Button>
-            <Button
-              class="w-full cursor-pointer"
-              :disabled="isSubmitting"
-              @click="submitAdmin"
-            >
-              {{ isSubmitting ? "Creating..." : "Create Admin" }}
-            </Button>
-          </div>
+    <Card v-if="!isListMode" class="w-full px-6">
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-lg font-medium">Create Admin</h2>
+          <p class="text-sm text-muted-foreground">
+            Create an admin account that can access the dashboard.
+          </p>
         </div>
-      </Card>
-    </div>
+
+        <div class="space-y-2">
+          <Label for="bootstrap-email">Email</Label>
+          <Input id="bootstrap-email" v-model="form.email" placeholder="admin@company.com" />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="bootstrap-password">Password</Label>
+          <Input id="bootstrap-password" v-model="form.password" type="password"
+            placeholder="At least 8 chars" />
+        </div>
+
+        <div class="flex items-center gap-2">
+          <Button
+            class="cursor-pointer"
+            variant="outline"
+            @click="router.push('/dashboard/admin')"
+          >
+            Cancel
+          </Button>
+          <Button
+            class="cursor-pointer"
+            :disabled="isSubmitting"
+            @click="submitAdmin"
+          >
+            {{ isSubmitting ? "Creating..." : "Create Admin" }}
+          </Button>
+        </div>
+      </div>
+    </Card>
   </section>
 </template>
