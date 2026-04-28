@@ -2,6 +2,7 @@
 import { useDebounceFn } from "@vueuse/core";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useAdminManagement } from "~/features/admin/composables/useAdminManagement";
+import AdminListSkeleton from "~/features/admin/components/AdminListSkeleton.vue";
 import type { UserResponse } from "~/features/admin/types/admin.types";
 
 interface AdminManagementViewProps {
@@ -194,57 +195,44 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-6">
     <div v-if="isListMode">
-      <h1 class="text-2xl font-semibold mb-2">Admin Management</h1>
-      <p class="text-sm text-muted-foreground mb-6">
-        View and manage admin accounts that can access the dashboard.
-      </p>
+      
 
-      <Card class="w-full px-6 py-4">
+      <Card class="w-full px-6">
         <div class="space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3 w-full md:w-auto">
-              <Input
-                v-model="searchQuery"
-                placeholder="Search by email or name"
-                class="max-w-sm flex-1 md:flex-none"
-              />
+          <div class="rounded-2xl bg-white p-4 shadow-sm">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
+                  <Input v-model="searchQuery" placeholder="Search by email or name" class="max-w-sm bg-transparent" />
+                </div>
 
-              <select
-                v-model="statusFilter"
-                class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+                <select v-model="statusFilter"
+                  class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                  <option value="all">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <Button class="cursor-pointer bg-brand text-white hover:bg-brand-hover" @click="goToCreateAdmin">
+                <Icon name="lucide:plus" class="size-4" />
+                Create Admin
+              </Button>
             </div>
-
-            <Button class="cursor-pointer" @click="goToCreateAdmin">
-              <Icon name="lucide:plus" class="size-4" />
-              Create Admin
-            </Button>
           </div>
 
-          <div v-if="isInitialLoading" class="text-sm text-muted-foreground">
-            Loading admins...
-          </div>
+          <AdminListSkeleton v-if="isInitialLoading" />
 
           <div v-else>
             <div class="space-y-3 md:hidden">
-              <div
-                v-for="admin in filteredAdmins"
-                :key="`mobile-${admin.id}`"
-                class="space-y-3 rounded-lg border p-3"
-              >
+              <div v-for="admin in filteredAdmins" :key="`mobile-${admin.id}`" class="space-y-3 rounded-lg border p-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="truncate">
                     <p class="text-xs text-muted-foreground">Email</p>
                     <p class="font-medium truncate">{{ admin.email }}</p>
                   </div>
-                  <Badge
-                    variant="outline"
-                    :class="admin.enabled ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'"
-                  >
+                  <Badge variant="outline"
+                    :class="admin.enabled ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'">
                     {{ admin.enabled ? "Active" : "Inactive" }}
                   </Badge>
                 </div>
@@ -262,23 +250,14 @@ onBeforeUnmount(() => {
 
                 <div class="flex justify-end">
                   <div class="relative" data-action-menu>
-                    <Button
-                      class="cursor-pointer"
-                      size="icon-sm"
-                      variant="ghost"
-                      @click="toggleActionMenu(admin.id)"
-                    >
+                    <Button class="cursor-pointer" size="icon-sm" variant="ghost" @click="toggleActionMenu(admin.id)">
                       <Icon name="lucide:ellipsis" class="size-4" />
                     </Button>
 
-                    <div
-                      v-if="openActionMenuForId === admin.id"
-                      class="absolute right-0 bottom-full z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
-                    >
-                      <button
-                        class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
-                        @click="toggleStatus(admin)"
-                      >
+                    <div v-if="openActionMenuForId === admin.id"
+                      class="absolute right-0 bottom-full z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg">
+                      <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                        @click="toggleStatus(admin)">
                         {{ admin.enabled ? "Disable User" : "Enable User" }}
                       </button>
                     </div>
@@ -286,63 +265,47 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <p
-                v-if="!filteredAdmins.length"
-                class="py-4 text-center text-muted-foreground"
-              >
+              <p v-if="!filteredAdmins.length" class="py-4 text-center text-muted-foreground">
                 No admins found.
               </p>
             </div>
 
             <div class="hidden overflow-x-auto md:block">
-              <table class="w-full border-collapse text-sm">
-                <thead>
-                  <tr class="border-b text-left">
-                    <th class="py-2">Email</th>
-                    <th class="py-2">Name</th>
-                    <th class="py-2">Status</th>
-                    <th class="py-2 text-right">Actions</th>
+              <table class="w-full overflow-hidden rounded-lg border-collapse bg-white text-sm shadow-sm">
+                <thead class="bg-muted/20">
+                  <tr class="text-left">
+                    <th class="px-4 py-3 text-sm text-muted-foreground">Email</th>
+                    <th class="px-4 py-3 text-sm text-muted-foreground">Name</th>
+                    <th class="px-4 py-3 text-sm text-muted-foreground">Status</th>
+                    <th class="px-4 py-3 text-right text-sm text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="admin in filteredAdmins"
-                    :key="admin.id"
-                    class="border-b align-top"
-                  >
-                    <td class="py-2 font-medium truncate max-w-xs">{{ admin.email }}</td>
-                    <td class="py-2 text-muted-foreground">
+                  <tr v-for="admin in filteredAdmins" :key="admin.id"
+                    class="border-b align-top transition-colors hover:bg-muted/10">
+                    <td class="max-w-xs px-4 py-4 truncate font-medium">{{ admin.email }}</td>
+                    <td class="px-4 py-4 text-muted-foreground">
                       {{
                         [admin.fullName, admin.firstName, admin.lastName].filter(Boolean)[0] || "-"
                       }}
                     </td>
-                    <td class="py-2">
-                      <Badge
-                        variant="outline"
-                        :class="admin.enabled ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'"
-                      >
+                    <td class="px-4 py-4">
+                      <Badge variant="outline"
+                        :class="admin.enabled ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'">
                         {{ admin.enabled ? "Active" : "Inactive" }}
                       </Badge>
                     </td>
-                    <td class="py-2 text-right">
+                    <td class="px-4 py-4 text-right">
                       <div class="relative inline-block" data-action-menu>
-                        <Button
-                          class="cursor-pointer"
-                          size="icon-sm"
-                          variant="ghost"
-                          @click="toggleActionMenu(admin.id)"
-                        >
+                        <Button class="cursor-pointer" size="icon-sm" variant="ghost"
+                          @click="toggleActionMenu(admin.id)">
                           <Icon name="lucide:ellipsis" class="size-4" />
                         </Button>
 
-                        <div
-                          v-if="openActionMenuForId === admin.id"
-                          class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg text-left"
-                        >
-                          <button
-                            class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
-                            @click="toggleStatus(admin)"
-                          >
+                        <div v-if="openActionMenuForId === admin.id"
+                          class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 text-left shadow-lg">
+                          <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                            @click="toggleStatus(admin)">
                             {{ admin.enabled ? "Disable User" : "Enable User" }}
                           </button>
                         </div>
@@ -350,10 +313,7 @@ onBeforeUnmount(() => {
                     </td>
                   </tr>
                   <tr v-if="!filteredAdmins.length">
-                    <td
-                      colspan="4"
-                      class="py-4 text-center text-muted-foreground"
-                    >
+                    <td colspan="4" class="py-4 text-center text-muted-foreground">
                       No admins found.
                     </td>
                   </tr>
@@ -361,29 +321,19 @@ onBeforeUnmount(() => {
               </table>
             </div>
 
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-3">
               <p class="text-xs text-muted-foreground">{{ pageSummary }}</p>
               <div class="flex items-center gap-2">
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="!adminsPagination.hasPrevious || isAdminsLoading"
-                  @click="goToPreviousPage"
-                >
+                <Button class="cursor-pointer" size="sm" variant="outline"
+                  :disabled="!adminsPagination.hasPrevious || isAdminsLoading" @click="goToPreviousPage">
                   Previous
                 </Button>
                 <p class="text-xs text-muted-foreground">
                   Page {{ adminsPagination.page + 1 }} of
                   {{ Math.max(adminsPagination.totalPages, 1) }}
                 </p>
-                <Button
-                  class="cursor-pointer"
-                  size="sm"
-                  variant="outline"
-                  :disabled="!adminsPagination.hasNext || isAdminsLoading"
-                  @click="goToNextPage"
-                >
+                <Button class="cursor-pointer" size="sm" variant="outline"
+                  :disabled="!adminsPagination.hasNext || isAdminsLoading" @click="goToNextPage">
                   Next
                 </Button>
               </div>
@@ -395,39 +345,37 @@ onBeforeUnmount(() => {
 
     <Card v-if="!isListMode" class="w-full px-6">
       <div class="space-y-4">
-        <div>
-          <h2 class="text-lg font-medium">Create Admin</h2>
-          <p class="text-sm text-muted-foreground">
-            Create an admin account that can access the dashboard.
-          </p>
+        <div class="rounded-2xl bg-white p-4 shadow-sm">
+          <div class="space-y-1">
+            <h2 class="text-2xl font-semibold">Create Admin</h2>
+            <p class="text-sm text-muted-foreground">
+              Create an admin account that can access the dashboard.
+            </p>
+          </div>
         </div>
 
-        <div class="space-y-2">
-          <Label for="bootstrap-email">Email</Label>
-          <Input id="bootstrap-email" v-model="form.email" placeholder="admin@company.com" />
-        </div>
+        <div class="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+          <div class="space-y-4">
+            <div class="space-y-2">
+              <Label for="bootstrap-email">Email</Label>
+              <Input id="bootstrap-email" v-model="form.email" placeholder="admin@company.com" />
+            </div>
 
-        <div class="space-y-2">
-          <Label for="bootstrap-password">Password</Label>
-          <Input id="bootstrap-password" v-model="form.password" type="password"
-            placeholder="At least 8 chars" />
-        </div>
+            <div class="space-y-2">
+              <Label for="bootstrap-password">Password</Label>
+              <Input id="bootstrap-password" v-model="form.password" type="password" placeholder="At least 8 chars" />
+            </div>
 
-        <div class="flex items-center gap-2">
-          <Button
-            class="cursor-pointer"
-            variant="outline"
-            @click="router.push('/dashboard/admin')"
-          >
-            Cancel
-          </Button>
-          <Button
-            class="cursor-pointer"
-            :disabled="isSubmitting"
-            @click="submitAdmin"
-          >
-            {{ isSubmitting ? "Creating..." : "Create Admin" }}
-          </Button>
+            <div class="flex items-center gap-2 pt-2">
+              <Button class="cursor-pointer" variant="outline" @click="router.push('/dashboard/admin')">
+                Cancel
+              </Button>
+              <Button class="cursor-pointer bg-brand text-white hover:bg-brand-hover" :disabled="isSubmitting"
+                @click="submitAdmin">
+                {{ isSubmitting ? "Creating..." : "Create Admin" }}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </Card>

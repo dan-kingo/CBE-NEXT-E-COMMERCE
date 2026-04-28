@@ -570,50 +570,66 @@ onBeforeUnmount(() => {
 
         <Card v-else class="w-full px-6">
             <div class="space-y-4">
-                <h2 class="text-lg font-medium">
-                    {{ isEditMode ? "Edit Category" : "Create Category" }}
-                </h2>
-
-                <div class="space-y-2">
-                    <Label for="category-name">Name</Label>
-                    <Input id="category-name" v-model="form.name" placeholder="Electronics" />
+                <div class="rounded-2xl bg-white p-4 shadow-sm">
+                    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div class="space-y-1">
+                            <h2 class="text-2xl font-semibold">
+                                {{ isEditMode ? "Edit Category" : "Create Category" }}
+                            </h2>
+                            <p class="text-sm text-muted-foreground">
+                                Manage category details and keep the structure organized.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="space-y-2">
-                    <Label for="category-slug">Slug</Label>
-                    <Input id="category-slug" v-model="form.slug" placeholder="electronics" />
-                </div>
+                <div class="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <Label for="category-name">Name</Label>
+                            <Input id="category-name" v-model="form.name" placeholder="Electronics" />
+                        </div>
 
-                <div class="space-y-2">
-                    <Label for="category-parent">Parent Category (optional)</Label>
-                    <select id="category-parent" v-model="form.parentId"
-                        class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
-                        <option value="">No parent</option>
-                        <option v-for="option in allCategoryOptions" :key="option.category.id"
-                            :value="String(option.category.id)">
-                            {{ getTreeLabel(option.category.name, option.depth) }}
-                        </option>
-                    </select>
-                </div>
+                        <div class="space-y-2">
+                            <Label for="category-slug">Slug</Label>
+                            <Input id="category-slug" v-model="form.slug" placeholder="electronics" />
+                        </div>
 
-                <div class="space-y-2">
-                    <Label for="category-description">Description</Label>
-                    <Textarea id="category-description" v-model="form.description" placeholder="Category details" />
-                </div>
+                        <div class="space-y-2">
+                            <Label for="category-parent">Parent Category (optional)</Label>
+                            <select id="category-parent" v-model="form.parentId"
+                                class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                <option value="">No parent</option>
+                                <option v-for="option in allCategoryOptions" :key="option.category.id"
+                                    :value="String(option.category.id)">
+                                    {{ getTreeLabel(option.category.name, option.depth) }}
+                                </option>
+                            </select>
+                        </div>
 
-                <div class="flex items-center gap-2">
-                    <Button class="cursor-pointer" variant="outline" @click="router.push('/dashboard/categories')">
-                        Cancel
-                    </Button>
-                    <Button class="cursor-pointer" :disabled="isSubmitting" @click="submitCategory">
-                        {{
-                            isSubmitting
-                                ? "Saving..."
-                                : isEditMode
-                                    ? "Update Category"
-                                    : "Create Category"
-                        }}
-                    </Button>
+                        <div class="space-y-2">
+                            <Label for="category-description">Description</Label>
+                            <Textarea id="category-description" v-model="form.description"
+                                placeholder="Category details" />
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-2">
+                            <Button class="cursor-pointer" variant="outline"
+                                @click="router.push('/dashboard/categories')">
+                                Cancel
+                            </Button>
+                            <Button class="cursor-pointer bg-brand text-white hover:bg-brand-hover"
+                                :disabled="isSubmitting" @click="submitCategory">
+                                {{
+                                    isSubmitting
+                                        ? "Saving..."
+                                        : isEditMode
+                                            ? "Update Category"
+                                            : "Create Category"
+                                }}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Card>
@@ -629,7 +645,7 @@ onBeforeUnmount(() => {
                     This will permanently delete
                     <span class="font-medium text-foreground">{{
                         categoryPendingDelete?.name
-                        }}</span>. This action cannot be undone.
+                    }}</span>. This action cannot be undone.
                 </p>
 
                 <div class="mt-6 flex justify-end gap-2">
