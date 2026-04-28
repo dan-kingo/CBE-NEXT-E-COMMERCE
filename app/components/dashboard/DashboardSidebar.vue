@@ -41,30 +41,31 @@ const handleMenuNavigation = () => {
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="sidebar" class="border-r">
-        <SidebarHeader class="border-b">
+    <Sidebar collapsible="icon" variant="sidebar"
+        class="m-3 h-[calc(100vh-1.5rem)] rounded-3xl border border-white/70 bg-white/90 p-2 shadow-sm backdrop-blur md:m-4 md:h-[calc(100vh-2rem)] md:p-3">
+        <SidebarHeader class="border-b border-border/60 pb-3">
             <div
-                class="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                class="flex items-center gap-3 px-3 py-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
                 <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-primary-foreground font-semibold">
-                    <UserCircle2Icon class="size-4" />
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand font-semibold">
+                    <UserCircle2Icon class="size-5" />
                 </div>
                 <div class="group-data-[collapsible=icon]:hidden">
-                    <p class="text-sm font-semibold">E-COMMERCE</p>
-                    <p class="text-xs text-muted-foreground">Dashboard</p>
+                    <p class="text-2xl font-semibold leading-none text-brand">CBE NEXT</p>
+                    <p class="mt-1 text-sm text-muted-foreground">Dashboard</p>
                 </div>
             </div>
         </SidebarHeader>
 
-        <SidebarContent>
+        <SidebarContent class="pt-4">
             <SidebarGroup>
                 <SidebarGroupContent>
-                    <SidebarMenu class="gap-3">
+                    <SidebarMenu class="gap-2.5">
                         <SidebarMenuItem v-for="item in menuItems" :key="item.title">
                             <SidebarMenuButton as-child :is-active="isActive(item.to)" :tooltip="item.title"
-                                class="text-[15px] hover:bg-brand/20 hover:text-brand/70 data-[active=true]:bg-brand/20 data-[active=true]:text-brand/70">
+                                class="min-h-12 rounded-xl px-3 text-[16px] font-medium text-foreground/90 transition-all hover:bg-brand/10 hover:text-brand data-[active=true]:bg-brand/15 data-[active=true]:text-brand">
                                 <NuxtLink :to="item.to" @click="handleMenuNavigation">
-                                    <component :is="item.icon" class="size-4.5 shrink-0" />
+                                    <component :is="item.icon" class="size-5 shrink-0" />
                                     <span>{{ item.title }}</span>
                                 </NuxtLink>
                             </SidebarMenuButton>
@@ -74,20 +75,20 @@ const handleMenuNavigation = () => {
             </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter class="border-t">
+        <SidebarFooter class="border-t border-border/60 pt-3">
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton class="group-data-[collapsible=icon]:justify-center">
+                    <SidebarMenuButton class="group-data-[collapsible=icon]:justify-center min-h-12 rounded-xl px-3">
 
                         <div
-                            class="size-9 shrink-0 rounded-full bg-brand/30 text-brand/70 flex items-center justify-center font-medium">
+                            class="size-10 shrink-0 rounded-full bg-brand/20 text-brand flex items-center justify-center text-base font-semibold">
                             {{ profileInitials }}
                         </div>
                         <div class="group-data-[collapsible=icon]:hidden text-left">
-                            <p class="text-sm font-medium leading-none">
+                            <p class="text-base font-medium leading-none">
                                 {{ profile?.firstName || 'Admin' }} {{ profile?.lastName || 'One' }}
                             </p>
-                            <p class="text-xs text-muted-foreground">{{ profile?.email || 'admin@example.com' }}</p>
+                            <p class="text-sm text-muted-foreground">{{ profile?.email || 'admin@example.com' }}</p>
                         </div>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
