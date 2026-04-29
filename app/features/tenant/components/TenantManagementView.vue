@@ -199,17 +199,15 @@ const confirmStatusUpdate = async () => {
   }
 
   const tenant = tenantPendingStatusUpdate.value;
-  if (!tenant.tenantProfileId) {
+  const profileId = tenant.profileId ?? tenant.tenantProfileId?.toString();
+  if (!profileId) {
     toast.error({ message: "Tenant profile ID is missing for this account." });
     return;
   }
 
   isSubmitting.value = true;
   try {
-    await updateTenantStatus(
-      Number(tenant.tenantProfileId),
-      selectedStatus.value,
-    );
+    await updateTenantStatus(profileId, selectedStatus.value);
     toast.success({ message: "Tenant status updated" });
     void refreshTenants({
       page: tenantsPagination.value.page,

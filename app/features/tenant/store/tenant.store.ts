@@ -223,11 +223,8 @@ export const useTenantStore = defineStore("tenant", {
       }
     },
 
-    async updateTenantStatus(
-      tenantProfileId: number,
-      status: TenantProfileStatus,
-    ) {
-      const updated = await tenantService.updateStatus(tenantProfileId, status);
+    async updateTenantStatus(profileId: string, status: TenantProfileStatus) {
+      const updated = await tenantService.updateStatus(profileId, status);
       this.patchTenant(updated);
       return updated;
     },

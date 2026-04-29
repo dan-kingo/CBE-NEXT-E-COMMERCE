@@ -26,6 +26,7 @@ export interface UserResponse {
   customerFullName?: string;
   customerAddress?: string;
   customerPhoneNumber?: string;
+  profileId?: string;
   tenantProfileId?: number;
   firstName?: string;
   lastName?: string;

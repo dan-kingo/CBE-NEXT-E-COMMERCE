@@ -6,7 +6,6 @@ import type {
   PaginatedApiResponse,
   PaginatedListResult,
   TenantProfileStatus,
-  UpdateTenantStatusRequest,
   UserResponse,
 } from "~/features/tenant/types/tenant.types";
 
@@ -67,11 +66,23 @@ const normalizeTenantList = (
     };
   }
 
+  if ("data" in response) {
+    const apiResponse = response as PaginatedApiResponse<UserResponse>;
+    return {
+      content: apiResponse.data?.content ?? [],
+      pagination:
+        apiResponse.data?.pagination ??
+        createFallbackPagination(
+          page,
+          size,
+          apiResponse.data?.content?.length ?? 0,
+        ),
+    };
+  }
+
   return {
-    content: response.data?.content ?? [],
-    pagination:
-      response.data?.pagination ??
-      createFallbackPagination(page, size, response.data?.content?.length ?? 0),
+    content: [],
+    pagination: createFallbackPagination(page, size, 0),
   };
 };
 
@@ -89,13 +100,13 @@ export const tenantService = {
     return isApiResponse<UserResponse>(response) ? response.data : response;
   },
 
-  async updateStatus(tenantProfileId: number, status: TenantProfileStatus) {
+  async updateStatus(profileId: string, status: TenantProfileStatus) {
     const { $api } = useNuxtApp();
     const response = await $api<UserResponse | ApiResponse<UserResponse>>(
-      `/admin/tenants/${tenantProfileId}/status`,
+      `/admin/tenants/${profileId}/status`,
       {
-        method: "PATCH",
-        body: { status } as UpdateTenantStatusRequest,
+        method: "PUT",
+        query: { status },
       },
     );
 
