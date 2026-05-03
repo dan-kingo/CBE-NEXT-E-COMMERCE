@@ -8,16 +8,21 @@ export interface AuthTokenDTO {
   refreshToken: string;
 }
 
+export interface AuthLoginSessionDTO extends AuthTokenDTO {
+  role: string;
+}
+
 export interface AuthProfileDTO {
   firstName: string;
   lastName: string;
   role: string;
-  email: string; 
+  email: string;
 }
 
 export interface AuthSession {
   accessToken: string;
   refreshToken: string;
+  role: string;
 }
 
 export interface AuthProfile {

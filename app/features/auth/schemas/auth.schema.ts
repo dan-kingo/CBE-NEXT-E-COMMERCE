@@ -27,9 +27,11 @@ export const loginResponseSchema = z
   .object({
     status: apiStatusSchema.optional(),
     token: authTokenSchema.optional(),
+    role: z.string().optional(),
     data: z
       .object({
         token: authTokenSchema.optional(),
+        role: z.string().optional(),
       })
       .optional(),
   })

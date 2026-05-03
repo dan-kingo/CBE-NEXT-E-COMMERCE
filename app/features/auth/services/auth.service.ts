@@ -28,11 +28,16 @@ export const authService = {
     assertStatusCode(parsed.status);
 
     const token = parsed.token ?? parsed.data?.token;
+    const role = parsed.role ?? parsed.data?.role;
     if (!token) {
       throw new Error("Login response does not include a session.");
     }
 
-    return mapTokenDtoToSession(token);
+    if (!role) {
+      throw new Error("Login response does not include a role.");
+    }
+
+    return mapTokenDtoToSession({ ...token, role });
   },
 
   async getMe() {

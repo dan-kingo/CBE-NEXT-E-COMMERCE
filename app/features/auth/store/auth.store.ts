@@ -17,12 +17,16 @@ export const useAuthStore = defineStore("auth", {
     const refreshTokenCookie = useCookie<string | null>("refresh_token", {
       default: () => null,
     });
+    const roleCookie = useCookie<string | null>("user_role", {
+      default: () => null,
+    });
 
     const session =
-      accessTokenCookie.value && refreshTokenCookie.value
+      accessTokenCookie.value && refreshTokenCookie.value && roleCookie.value
         ? {
             accessToken: accessTokenCookie.value,
             refreshToken: refreshTokenCookie.value,
+            role: roleCookie.value,
           }
         : null;
 
@@ -41,6 +45,7 @@ export const useAuthStore = defineStore("auth", {
   getters: {
     accessToken: (state) => state.data.session?.accessToken ?? null,
     refreshToken: (state) => state.data.session?.refreshToken ?? null,
+    role: (state) => state.data.session?.role ?? null,
     profile: (state) => state.data.profile,
     isAuthenticated: (state) => Boolean(state.data.session?.accessToken),
     hasFreshProfile: (state) => {
@@ -56,6 +61,7 @@ export const useAuthStore = defineStore("auth", {
     persistAuthState() {
       useCookie<string | null>("access_token").value = this.accessToken;
       useCookie<string | null>("refresh_token").value = this.refreshToken;
+      useCookie<string | null>("user_role").value = this.role;
     },
 
     invalidate() {
@@ -78,6 +84,12 @@ export const useAuthStore = defineStore("auth", {
         .login(payload)
         .then((session) => {
           this.applySession(session);
+
+          if (session.role !== "ADMIN") {
+            this.logout(false);
+            throw new Error("Unauthorized access. Admin role is required.");
+          }
+
           return session;
         })
         .finally(() => {
@@ -126,6 +138,7 @@ export const useAuthStore = defineStore("auth", {
 
       useCookie<string | null>("access_token").value = null;
       useCookie<string | null>("refresh_token").value = null;
+      useCookie<string | null>("user_role").value = null;
 
       if (redirect) {
         void navigateTo("/");

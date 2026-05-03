@@ -1,13 +1,16 @@
 import type {
+  AuthLoginSessionDTO,
   AuthProfile,
   AuthProfileDTO,
   AuthSession,
-  AuthTokenDTO,
 } from "~/features/auth/types/auth.types";
 
-export const mapTokenDtoToSession = (dto: AuthTokenDTO): AuthSession => ({
+export const mapTokenDtoToSession = (
+  dto: AuthLoginSessionDTO,
+): AuthSession => ({
   accessToken: dto.accessToken,
   refreshToken: dto.refreshToken,
+  role: dto.role,
 });
 
 export const mapAuthProfileDto = (dto: AuthProfileDTO): AuthProfile => ({
