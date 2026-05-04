@@ -43,13 +43,17 @@ export const useThemeMode = () => {
 
   const isDark = computed(() => resolvedMode.value === "dark");
 
-  watchEffect(() => {
-    if (!import.meta.client) {
-      return;
-    }
+  watch(
+    [mode, preferredDark],
+    () => {
+      if (!import.meta.client) {
+        return;
+      }
 
-    applyThemeMode(mode.value);
-  });
+      applyThemeMode(mode.value);
+    },
+    { immediate: true },
+  );
 
   const setMode = (value: ThemeMode) => {
     mode.value = value;
