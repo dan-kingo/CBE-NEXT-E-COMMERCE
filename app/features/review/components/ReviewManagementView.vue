@@ -263,10 +263,10 @@ onBeforeUnmount(() => {
         <Card class="w-full px-6">
             <div class="space-y-4">
                 <div class="rounded-2xl bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
-                    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div class="flex gap-3 md:flex-row md:items-center md:justify-between">
                         <h2 class="text-2xl font-semibold text-foreground">Reviews</h2>
 
-                        <div class="flex flex-wrap items-center gap-3 md:justify-end">
+                        <div class="flex  items-center gap-3 md:justify-end">
                             <select id="review-moderation" v-model="filters.moderationStatus"
                                 class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
                                 <option v-for="item in moderationStatusOptions" :key="item.label" :value="item.value">
@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
                                 </option>
                             </select>
                             <select id="review-visibility" v-model="filters.visibilityStatus"
-                                class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] hidden sm:block">
+                                class="border-input bg-background rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]  block">
                                 <option v-for="item in visibilityStatusOptions" :key="item.label" :value="item.value">
                                     {{ item.label }}
                                 </option>

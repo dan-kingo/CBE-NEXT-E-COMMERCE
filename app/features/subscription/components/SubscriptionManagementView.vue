@@ -87,6 +87,12 @@ const formatPrice = (plan: SubscriptionPlan) => {
   return `${plan.currency} ${plan.price.toFixed(2)}`;
 };
 
+const currencyOptions = [
+  { label: "USD", value: "USD" },
+  { label: "Pound (GBP)", value: "GBP" },
+  { label: "ETB", value: "ETB" },
+];
+
 const formatDate = (value: string) => {
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
@@ -599,7 +605,12 @@ onBeforeUnmount(() => {
 
             <div class="space-y-2">
               <Label for="plan-currency">Currency</Label>
-              <Input id="plan-currency" v-model="form.currency" placeholder="USD" />
+              <select id="plan-currency" v-model="form.currency"
+                class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                <option v-for="currency in currencyOptions" :key="currency.value" :value="currency.value">
+                  {{ currency.label }}
+                </option>
+              </select>
             </div>
 
             <div class="space-y-2">

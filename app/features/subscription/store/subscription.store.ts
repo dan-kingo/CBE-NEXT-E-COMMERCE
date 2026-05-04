@@ -25,7 +25,7 @@ type SubscriptionPlanForm = CreatePlanRequest & {
 const createDefaultForm = (): SubscriptionPlanForm => ({
   name: "",
   price: 0,
-  currency: "USD",
+  currency: "ETB",
   durationDays: 30,
   active: true,
 });

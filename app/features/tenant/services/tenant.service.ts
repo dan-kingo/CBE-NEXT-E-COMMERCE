@@ -90,7 +90,7 @@ export const tenantService = {
   async create(payload: CreateTenantRequest) {
     const { $api } = useNuxtApp();
     const response = await $api<UserResponse | ApiResponse<UserResponse>>(
-      "/users/tenants/create",
+      "/users/tenants",
       {
         method: "POST",
         body: payload,
@@ -122,7 +122,7 @@ export const tenantService = {
       | PaginatedApiResponse<UserResponse>
       | ApiResponse<PaginatedApiResponse<UserResponse>>
       | UserResponse[]
-    >("/users/tenants/getAll", {
+    >("/users/tenants", {
       query: { page, size },
     });
 
