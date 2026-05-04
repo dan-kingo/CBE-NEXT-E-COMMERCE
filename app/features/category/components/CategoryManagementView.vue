@@ -44,7 +44,6 @@ const openActionMenuForId = ref<string | null>(null);
 
 const form = reactive({
     name: "",
-    slug: "",
     description: "",
     parentId: "",
 });
@@ -208,7 +207,6 @@ const getTreeLabel = (name: string, depth: number) => {
 
 const parseFormToPayload = (): CreateCategoryRequest => ({
     name: form.name,
-    slug: form.slug,
     description: form.description || undefined,
     parentId: form.parentId || null,
 });
@@ -250,7 +248,6 @@ const fetchCategories = async (
 
 const fillFormFromCategory = (category: Category) => {
     form.name = category.name;
-    form.slug = category.slug;
     form.description = category.description || "";
     form.parentId = category.parentId ? String(category.parentId) : "";
 };
@@ -471,11 +468,11 @@ onBeforeUnmount(() => {
                                             @click="goToEditCategory(row.category)">
                                             View &amp; Edit
                                         </button>
-                                        <button
+                                        <!-- <button
                                             class="w-full rounded-sm px-2 py-1.5 text-left text-sm text-destructive hover:bg-muted cursor-pointer"
                                             @click="openDeleteDialog(row.category)">
                                             Delete
-                                        </button>
+                                        </button> -->
                                     </div>
                                 </div>
                             </div>
@@ -533,9 +530,9 @@ onBeforeUnmount(() => {
                                                 <button
                                                     class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
                                                     @click="goToEditCategory(row.category)">View &amp; Edit</button>
-                                                <button
+                                                <!-- <button
                                                     class="w-full rounded-sm px-2 py-1.5 text-left text-sm text-destructive hover:bg-muted cursor-pointer"
-                                                    @click="openDeleteDialog(row.category)">Delete</button>
+                                                    @click="openDeleteDialog(row.category)">Delete</button> -->
                                             </div>
                                         </div>
                                     </td>
@@ -593,11 +590,6 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="category-slug">Slug</Label>
-                            <Input id="category-slug" v-model="form.slug" placeholder="electronics" />
-                        </div>
-
-                        <div class="space-y-2">
                             <Label for="category-parent">Parent Category (optional)</Label>
                             <select id="category-parent" v-model="form.parentId"
                                 class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
@@ -647,7 +639,7 @@ onBeforeUnmount(() => {
                     This will permanently delete
                     <span class="font-medium text-foreground">{{
                         categoryPendingDelete?.name
-                        }}</span>. This action cannot be undone.
+                    }}</span>. This action cannot be undone.
                 </p>
 
                 <div class="mt-6 flex justify-end gap-2">

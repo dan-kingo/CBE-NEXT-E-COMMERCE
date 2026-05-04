@@ -111,7 +111,7 @@ export const categoryService = {
     const { $api } = useNuxtApp();
     const body = createCategorySchema.parse(payload);
     const response = await $api<unknown>(`/categories/${id}`, {
-      method: "PUT",
+      method: "PATCH",
       body,
     });
 

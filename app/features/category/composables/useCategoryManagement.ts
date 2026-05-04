@@ -11,7 +11,6 @@ export const useCategoryManagement = () => {
 
   const parsePayload = (payload: {
     name: string;
-    slug: string;
     description?: string;
     parentId?: string | null;
   }): CreateCategoryInput => {
@@ -34,7 +33,6 @@ export const useCategoryManagement = () => {
     refreshCategories: store.revalidateCategories,
     createCategory: async (payload: {
       name: string;
-      slug: string;
       description?: string;
       parentId?: string | null;
     }) => {
@@ -45,7 +43,6 @@ export const useCategoryManagement = () => {
       categoryId: string,
       payload: {
         name: string;
-        slug: string;
         description?: string;
         parentId?: string | null;
       },

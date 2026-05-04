@@ -50,7 +50,6 @@ export interface Category {
 
 export interface CreateCategoryRequest {
   name: string;
-  slug: string;
   description?: string;
   parentId?: string | null;
 }

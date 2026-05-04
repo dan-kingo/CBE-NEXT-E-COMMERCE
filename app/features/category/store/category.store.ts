@@ -209,7 +209,6 @@ export const useCategoryStore = defineStore("category", {
           (category) => ({
             ...category,
             name: payload.name,
-            slug: payload.slug,
             description: payload.description ?? "",
             parentId:
               payload.parentId === undefined
