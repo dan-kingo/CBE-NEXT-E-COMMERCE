@@ -27,11 +27,11 @@ const formatCurrency = (value: number) => new Intl.NumberFormat(undefined, { max
 const formatLabel = (value: string) => value.replace(/_/g, " ").toLowerCase().replace(/(^|\s)\S/g, (l) => l.toUpperCase());
 
 const mainTabs = [
-    { key: "revenue", label: "Revenue by month" },
-    { key: "tenants", label: "Top tenants by revenue" },
-    { key: "subscriptions", label: "Subscription activity" },
-    { key: "financial", label: "Financial summary" },
-    { key: "status", label: "Status breakdown" },
+    { key: "revenue", label: "Revenue by month", icon: "lucide:bar-chart-2" },
+    { key: "tenants", label: "Top tenants by revenue", icon: "lucide:building-2" },
+    { key: "subscriptions", label: "Subscription activity", icon: "lucide:badge-check" },
+    { key: "financial", label: "Financial summary", icon: "lucide:dollar-sign" },
+    { key: "status", label: "Status breakdown", icon: "lucide:activity" },
 ] as const;
 
 const statusTabs = [
@@ -133,7 +133,7 @@ const selectedStatusRows = computed(() => {
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <h2 class="text-xl font-semibold">{{(mainTabs.find((t) => t.key === activeTab) ||
-                            mainTabs[0]).label }}</h2>
+                            mainTabs[0]).label}}</h2>
                         <p class="text-sm text-muted-foreground">
                             {{
                                 activeTab === 'revenue'
@@ -144,7 +144,7 @@ const selectedStatusRows = computed(() => {
                                             ? 'Active subscriptions and plan breakdown.'
                                             : activeTab === 'financial'
                                                 ? 'Order revenue and fulfillment metrics from the overview endpoint.'
-                            : 'Operational status counts across the platform.'
+                                                : 'Operational status counts across the platform.'
                             }}
                         </p>
                     </div>
@@ -155,7 +155,10 @@ const selectedStatusRows = computed(() => {
                         :variant="activeTab === tab.key ? 'default' : 'outline'"
                         :class="activeTab === tab.key ? 'bg-brand text-white hover:bg-brand-hover' : 'hover:bg-brand/10'"
                         @click="activeTab = tab.key">
-                        {{ tab.label }}
+                        <span class="flex items-center">
+                            <Icon :name="tab.icon" class="size-4 mr-2" />
+                            {{ tab.label }}
+                        </span>
                     </Button>
                 </div>
 
@@ -221,7 +224,7 @@ const selectedStatusRows = computed(() => {
                             <div class="rounded-2xl border bg-muted/20 p-4">
                                 <p class="text-xs uppercase tracking-wide text-muted-foreground">Revenue total</p>
                                 <p class="mt-2 text-2xl font-semibold">{{ formatCurrency(overview.orders.revenueTotal)
-                                    }}</p>
+                                }}</p>
                             </div>
                             <div class="rounded-2xl border bg-muted/20 p-4">
                                 <p class="text-xs uppercase tracking-wide text-muted-foreground">Average order value</p>
@@ -231,7 +234,7 @@ const selectedStatusRows = computed(() => {
                             <div class="rounded-2xl border bg-muted/20 p-4">
                                 <p class="text-xs uppercase tracking-wide text-muted-foreground">Paid or fulfilled</p>
                                 <p class="mt-2 text-2xl font-semibold">{{ formatNumber(overview.orders.paidOrFulfilled)
-                                    }}</p>
+                                }}</p>
                             </div>
                             <div class="rounded-2xl border bg-muted/20 p-4">
                                 <p class="text-xs uppercase tracking-wide text-muted-foreground">Active plans</p>
