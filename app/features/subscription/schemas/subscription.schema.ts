@@ -12,6 +12,10 @@ export const createSubscriptionPlanSchema = z.object({
     .number()
     .int()
     .min(1, "Duration must be at least 1 day"),
+  maxStores: z.coerce
+    .number()
+    .int()
+    .min(0, "Max stores must be zero or greater"),
 });
 
 export const updateSubscriptionPlanSchema = createSubscriptionPlanSchema

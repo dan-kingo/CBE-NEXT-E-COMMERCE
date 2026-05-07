@@ -617,6 +617,11 @@ onBeforeUnmount(() => {
               <Label for="plan-duration">Duration (days)</Label>
               <Input id="plan-duration" v-model="form.durationDays" type="number" placeholder="30" />
             </div>
+
+            <div class="space-y-2">
+              <Label for="plan-max-stores">Max Stores</Label>
+              <Input id="plan-max-stores" v-model="form.maxStores" type="number" min="0" step="1" placeholder="3" />
+            </div>
           </div>
 
           <div v-if="isEditMode" class="flex items-center gap-2 rounded-lg border px-3 py-2">

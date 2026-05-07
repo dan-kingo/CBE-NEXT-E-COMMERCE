@@ -338,7 +338,8 @@ onBeforeUnmount(() => {
 
                 <div class="flex justify-end">
                   <div class="relative" data-action-menu>
-                    <Button class="cursor-pointer" size="icon-sm" variant="ghost" @click.stop="toggleActionMenu(admin.id)">
+                    <Button class="cursor-pointer" size="icon-sm" variant="ghost"
+                      @click.stop="toggleActionMenu(admin.id)">
                       <Icon name="lucide:ellipsis" class="size-4" />
                     </Button>
 

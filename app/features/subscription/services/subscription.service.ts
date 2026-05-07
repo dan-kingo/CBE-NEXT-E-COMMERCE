@@ -1,5 +1,6 @@
 import type {
   CreatePlanRequest,
+  AssignTenantSubscriptionRequest,
   SubscriptionPlan,
   SubscriptionPlanQueryRequest,
   SubscriptionPlanStats,
@@ -9,9 +10,22 @@ import {
   DEFAULT_PAGE_SIZE,
   normalizePaginatedList,
 } from "~/services/pagination";
-import type { ApiStatus, PaginatedApiResponse, PaginatedListResult } from "~/types/admin";
+import type {
+  ApiStatus,
+  PaginatedApiResponse,
+  PaginatedListResult,
+} from "~/types/admin";
+import type {
+  ApiStatus as TenantApiStatus,
+  UserResponse as TenantUserResponse,
+} from "~/features/tenant/types/tenant.types";
 interface ApiResponse<T> {
   status: ApiStatus;
+  data: T;
+}
+
+interface TenantApiResponse<T> {
+  status: TenantApiStatus;
   data: T;
 }
 
@@ -46,7 +60,11 @@ const normalizePlanListResponse = (
     Array.isArray((asAny.data as any).content) &&
     (asAny.data as any).pagination
   ) {
-    return normalizePaginatedList(response as PaginatedApiResponse<SubscriptionPlan>, fallbackPage, fallbackSize);
+    return normalizePaginatedList(
+      response as PaginatedApiResponse<SubscriptionPlan>,
+      fallbackPage,
+      fallbackSize,
+    );
   }
 
   // Case: double-wrapped ApiResponse<PaginatedApiResponse<T>> -> { status, data: { status, data: { content, pagination } } }
@@ -58,12 +76,27 @@ const normalizePlanListResponse = (
     Array.isArray((asAny.data as any).data.content) &&
     (asAny.data as any).data.pagination
   ) {
-    return normalizePaginatedList((asAny.data as any) as PaginatedApiResponse<SubscriptionPlan>, fallbackPage, fallbackSize);
+    return normalizePaginatedList(
+      asAny.data as any as PaginatedApiResponse<SubscriptionPlan>,
+      fallbackPage,
+      fallbackSize,
+    );
   }
 
   // Case: payload is already the inner paginated data { content, pagination }
-  if (asAny && Array.isArray((asAny as any).content) && (asAny as any).pagination) {
-    return normalizePaginatedList({ status: { code: 200, message: "OK" }, data: (asAny as any) } as PaginatedApiResponse<SubscriptionPlan>, fallbackPage, fallbackSize);
+  if (
+    asAny &&
+    Array.isArray((asAny as any).content) &&
+    (asAny as any).pagination
+  ) {
+    return normalizePaginatedList(
+      {
+        status: { code: 200, message: "OK" },
+        data: asAny as any,
+      } as PaginatedApiResponse<SubscriptionPlan>,
+      fallbackPage,
+      fallbackSize,
+    );
   }
 
   return normalizePaginatedList([], fallbackPage, fallbackSize);
@@ -83,6 +116,24 @@ const normalizeStatsResponse = (
     : response;
 };
 
+const isTenantApiResponse = <T>(
+  value: unknown,
+): value is TenantApiResponse<T> => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  return "data" in (value as Record<string, unknown>);
+};
+
+const normalizeTenantResponse = (
+  response: TenantUserResponse | TenantApiResponse<TenantUserResponse>,
+) => {
+  return isTenantApiResponse<TenantUserResponse>(response)
+    ? response.data
+    : response;
+};
+
 export const subscriptionService = {
   async create(payload: CreatePlanRequest) {
     const { $api } = useNuxtApp();
@@ -94,6 +145,21 @@ export const subscriptionService = {
     });
 
     return normalizePlanResponse(response);
+  },
+
+  async assignToTenant(
+    tenantId: string,
+    payload: AssignTenantSubscriptionRequest,
+  ) {
+    const { $api } = useNuxtApp();
+    const response = await $api<
+      TenantUserResponse | TenantApiResponse<TenantUserResponse>
+    >(`/api/admin/tenants/${tenantId}/subscription`, {
+      method: "POST",
+      body: payload,
+    });
+
+    return normalizeTenantResponse(response);
   },
 
   async getAll(params: SubscriptionPlanQueryRequest = {}) {

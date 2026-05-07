@@ -27,6 +27,7 @@ const createDefaultForm = (): SubscriptionPlanForm => ({
   price: 0,
   currency: "ETB",
   durationDays: 30,
+  maxStores: 1,
   active: true,
 });
 
@@ -52,6 +53,7 @@ export const useSubscriptionStore = defineStore("subscription", {
             price: plan.price,
             currency: plan.currency,
             durationDays: plan.durationDays,
+            maxStores: plan.maxStores,
             active: plan.active,
           }
         : createDefaultForm();

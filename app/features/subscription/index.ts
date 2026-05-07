@@ -9,6 +9,7 @@ export {
   type UpdateSubscriptionPlanInput,
 } from "~/features/subscription/schemas/subscription.schema";
 export type {
+  AssignTenantSubscriptionRequest,
   CreatePlanRequest,
   SubscriptionPlanQueryRequest,
   SubscriptionPlanStats,

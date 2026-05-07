@@ -3,6 +3,7 @@ export interface CreatePlanRequest {
   price: number;
   currency: string;
   durationDays: number;
+  maxStores: number;
 }
 
 export interface UpdatePlanRequest {
@@ -10,6 +11,7 @@ export interface UpdatePlanRequest {
   price?: number;
   currency?: string;
   durationDays?: number;
+  maxStores?: number;
   active?: boolean;
 }
 
@@ -19,6 +21,7 @@ export interface SubscriptionPlan {
   price: number;
   currency: string;
   durationDays: number;
+  maxStores: number;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -29,6 +32,10 @@ export interface SubscriptionPlanStats {
   name: string;
   totalPurchases: number;
   activeTenants: number;
+}
+
+export interface AssignTenantSubscriptionRequest {
+  planId: string;
 }
 
 export interface SubscriptionPlanQueryRequest {

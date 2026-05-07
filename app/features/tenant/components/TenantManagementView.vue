@@ -2,6 +2,8 @@
 import { useDebounceFn } from "@vueuse/core";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useTenantManagement } from "~/features/tenant/composables/useTenantManagement";
+import { subscriptionService } from "~/features/subscription/services/subscription.service";
+import type { SubscriptionPlan } from "~/features/subscription/types/subscription.types";
 import TenantListSkeleton from "~/features/tenant/components/TenantListSkeleton.vue";
 import type {
   TenantProfileStatus,
@@ -61,6 +63,12 @@ const openActionMenuForId = ref<string | null>(null);
 const isStatusDialogOpen = ref(false);
 const tenantPendingStatusUpdate = ref<UserResponse | null>(null);
 const selectedStatus = ref<TenantProfileStatus>("IN_REVIEW");
+const isAssignDialogOpen = ref(false);
+const tenantPendingSubscriptionAssign = ref<UserResponse | null>(null);
+const availableSubscriptionPlans = ref<SubscriptionPlan[]>([]);
+const selectedPlanId = ref("");
+const isLoadingSubscriptionPlans = ref(false);
+const isAssigningSubscription = ref(false);
 
 const tenantStatuses: TenantProfileStatus[] = [
   "IN_REVIEW",
@@ -82,6 +90,10 @@ const resolveTenantProfileStatus = (
   tenant: UserResponse,
 ): TenantProfileStatus => {
   return tenant.status ?? (tenant.enabled ? "ACTIVE" : "INACTIVE");
+};
+
+const resolveTenantId = (tenant: UserResponse) => {
+  return tenant.tenantId ?? tenant.id;
 };
 
 const filteredTenants = computed(() => {
@@ -150,6 +162,10 @@ watch(searchQuery, () => {
   debouncedReload();
 });
 
+watch([searchQuery, statusFilter], () => {
+  closeActionMenu();
+});
+
 const resetForm = () => {
   form.email = "";
   form.password = "";
@@ -179,6 +195,81 @@ const submitTenant = async () => {
 const toggleActionMenu = (tenantId: string) => {
   openActionMenuForId.value =
     openActionMenuForId.value === tenantId ? null : tenantId;
+};
+
+const loadSubscriptionPlans = async () => {
+  if (availableSubscriptionPlans.value.length || isLoadingSubscriptionPlans.value) {
+    return;
+  }
+
+  isLoadingSubscriptionPlans.value = true;
+
+  try {
+    const collectedPlans: SubscriptionPlan[] = [];
+    const pageSize = 100;
+    let page = 0;
+
+    while (true) {
+      const result = await subscriptionService.getAll({ page, size: pageSize });
+      collectedPlans.push(...result.content);
+
+      if (page >= result.pagination.totalPages - 1) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    availableSubscriptionPlans.value = collectedPlans;
+  } finally {
+    isLoadingSubscriptionPlans.value = false;
+  }
+};
+
+const openAssignSubscriptionDialog = async (tenant: UserResponse) => {
+  openActionMenuForId.value = null;
+  tenantPendingSubscriptionAssign.value = tenant;
+  selectedPlanId.value = "";
+  isAssignDialogOpen.value = true;
+
+  try {
+    await loadSubscriptionPlans();
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  }
+};
+
+const closeAssignDialog = () => {
+  isAssignDialogOpen.value = false;
+  tenantPendingSubscriptionAssign.value = null;
+  selectedPlanId.value = "";
+};
+
+const confirmAssignSubscription = async () => {
+  if (!tenantPendingSubscriptionAssign.value || !selectedPlanId.value) {
+    toast.error({ message: "Please select a subscription plan" });
+    return;
+  }
+
+  isAssigningSubscription.value = true;
+
+  try {
+    const tenantId = resolveTenantId(tenantPendingSubscriptionAssign.value);
+    await subscriptionService.assignToTenant(tenantId, {
+      planId: selectedPlanId.value,
+    });
+
+    toast.success({ message: "Subscription assigned successfully" });
+    closeAssignDialog();
+    void refreshTenants({
+      page: tenantsPagination.value.page,
+      size: tenantsPagination.value.size,
+    });
+  } catch (error) {
+    toast.error({ message: getMessageFromUnknown(error) });
+  } finally {
+    isAssigningSubscription.value = false;
+  }
 };
 
 const openStatusDialog = (tenant: UserResponse) => {
@@ -338,15 +429,21 @@ onBeforeUnmount(() => {
 
               <div class="flex justify-end">
                 <div class="relative" data-action-menu>
-                  <Button class="cursor-pointer" size="icon-sm" variant="ghost" @click="toggleActionMenu(tenant.id)">
+                  <Button class="cursor-pointer" size="icon-sm" variant="ghost"
+                    @click.stop="toggleActionMenu(tenant.id)">
                     <Icon name="lucide:ellipsis" class="size-4" />
                   </Button>
 
                   <div v-if="openActionMenuForId === tenant.id"
-                    class="absolute left-0 bottom-full z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg">
+                    class="absolute right-0 top-full z-50 mt-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
+                    @click.stop>
                     <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
                       @click="openStatusDialog(tenant)">
                       Change Status
+                    </button>
+                    <button class="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                      @click="openAssignSubscriptionDialog(tenant)">
+                      Assign Subscription
                     </button>
                   </div>
                 </div>
@@ -397,15 +494,21 @@ onBeforeUnmount(() => {
                   <td class="px-4 py-4">
                     <div class="relative" data-action-menu>
                       <Button class="cursor-pointer" size="icon-sm" variant="ghost"
-                        @click="toggleActionMenu(tenant.id)">
+                        @click.stop="toggleActionMenu(tenant.id)">
                         <Icon name="lucide:ellipsis" class="size-4" />
                       </Button>
 
                       <div v-if="openActionMenuForId === tenant.id"
-                        class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg">
+                        class="absolute right-0 top-full z-50 mt-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
+                        @click.stop>
                         <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
                           @click="openStatusDialog(tenant)">
                           Change Status
+                        </button>
+                        <button
+                          class="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
+                          @click="openAssignSubscriptionDialog(tenant)">
+                          Assign Subscription
                         </button>
                       </div>
                     </div>
@@ -473,6 +576,66 @@ onBeforeUnmount(() => {
           <Button class="cursor-pointer" :class="getStatusButtonClass(getTenantProfileStatusTone(selectedStatus))
             " :disabled="isSubmitting" @click="confirmStatusUpdate">
             {{ isSubmitting ? "Updating..." : "Update Status" }}
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="isAssignDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      @click.self="closeAssignDialog">
+      <div role="dialog" aria-modal="true" aria-labelledby="assign-subscription-title"
+        class="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+        <h3 id="assign-subscription-title" class="text-lg font-semibold">
+          Assign subscription
+        </h3>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Choose a subscription plan for
+          <span class="font-medium text-foreground">
+            {{ tenantPendingSubscriptionAssign?.email }}
+          </span>
+          .
+        </p>
+
+        <div class="mt-4 space-y-3">
+          <div v-if="isLoadingSubscriptionPlans" class="text-sm text-muted-foreground">
+            Loading subscription plans...
+          </div>
+
+          <div v-else class="max-h-80 space-y-2 overflow-y-auto pr-1">
+            <label v-for="plan in availableSubscriptionPlans" :key="plan.id"
+              class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/30"
+              :class="selectedPlanId === plan.id ? 'border-brand bg-brand/5' : 'border-border/60'">
+              <input v-model="selectedPlanId" type="radio" name="subscription-plan" :value="plan.id" class="mt-1" />
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="font-medium text-foreground">{{ plan.name }}</p>
+                  <Badge variant="outline"
+                    :class="plan.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'">
+                    {{ plan.active ? 'Active' : 'Inactive' }}
+                  </Badge>
+                </div>
+                <p class="text-sm text-muted-foreground">
+                  {{ plan.currency }} {{ plan.price.toFixed(2) }} • {{ plan.durationDays }} days • Max stores: {{
+                  plan.maxStores }}
+                </p>
+              </div>
+            </label>
+
+            <p v-if="!availableSubscriptionPlans.length" class="text-sm text-muted-foreground">
+              No subscription plans available.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-2">
+          <Button class="cursor-pointer" variant="outline" @click="closeAssignDialog">
+            Cancel
+          </Button>
+          <Button class="cursor-pointer bg-brand text-white hover:bg-brand-hover"
+            :disabled="isAssigningSubscription || isLoadingSubscriptionPlans || !selectedPlanId"
+            @click="confirmAssignSubscription">
+            {{ isAssigningSubscription ? 'Assigning...' : 'Assign Subscription' }}
           </Button>
         </div>
       </div>
