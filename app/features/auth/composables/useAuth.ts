@@ -9,6 +9,7 @@ export const useAuth = () => {
   return {
     isAuthenticated: computed(() => store.isAuthenticated),
     accessToken: computed(() => store.accessToken),
+    role: computed(() => store.role),
     profile: computed(() => store.profile),
     isLoading,
     login: store.login,

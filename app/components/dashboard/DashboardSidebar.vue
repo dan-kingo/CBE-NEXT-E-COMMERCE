@@ -2,7 +2,9 @@
 import { UserCircle2Icon } from 'lucide-vue-next';
 import { useSidebar } from '~/components/ui/sidebar';
 import { useAuth } from '~/features/auth';
-const { fetchProfile, profile } = useAuth()
+import { getMenuItems } from '~/utils/constants'
+
+const { fetchProfile, profile, role } = useAuth()
 
 const profileInitials = computed(() => {
     const firstInitial = profile.value?.firstName?.charAt(0) ?? 'A'
@@ -17,6 +19,7 @@ onMounted(async () => {
 
 const route = useRoute()
 const { isMobile, setOpenMobile } = useSidebar()
+const menuItems = computed(() => getMenuItems(role.value ?? profile.value?.role ?? null))
 const normalizePath = (path: string) =>
     path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 

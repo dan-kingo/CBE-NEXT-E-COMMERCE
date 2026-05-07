@@ -8,6 +8,7 @@ import type {
 } from "~/features/auth/types/auth.types";
 
 const PROFILE_CACHE_TTL = 60_000;
+const DASHBOARD_ROLES = new Set(["ADMIN", "SUPERADMIN"]);
 
 export const useAuthStore = defineStore("auth", {
   state: () => {
@@ -85,9 +86,11 @@ export const useAuthStore = defineStore("auth", {
         .then((session) => {
           this.applySession(session);
 
-          if (session.role !== "ADMIN") {
+          if (!DASHBOARD_ROLES.has(session.role)) {
             this.logout(false);
-            throw new Error("Unauthorized access. Admin role is required.");
+            throw new Error(
+              "Unauthorized access. Admin or SuperAdmin role is required.",
+            );
           }
 
           return session;

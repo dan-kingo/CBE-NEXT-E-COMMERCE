@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useAuth } from "~/features/auth/composables/useAuth";
-import { menuItems } from "~/utils/constants";
+import { getMenuItems } from "~/utils/constants";
 import { ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const route = useRoute();
-const { logout, profile, fetchProfile } = useAuth();
+const { logout, profile, fetchProfile, role } = useAuth();
 const toast = useToast();
 
 const isProfileMenuOpen = ref(false);
@@ -37,6 +37,8 @@ const profileInitials = computed(() => {
     return `${firstInitial}`;
 });
 
+const menuItems = computed(() => getMenuItems(role.value ?? profile.value?.role ?? null));
+
 const adminName = computed(() => {
     const firstName = profile.value?.firstName ?? "Admin";
     const lastName = profile.value?.lastName ?? "One";
@@ -48,8 +50,9 @@ const adminEmail = computed(() => profile.value?.email || "admin@example.com");
 
 const activeMenuItem = computed(() => {
     const currentPath = toDashboardPath(route.path);
+    const items = menuItems.value;
 
-    return menuItems.find((item) => {
+    return items.find((item) => {
         const targetPath = normalizePath(item.to);
 
         if (targetPath === "/dashboard") {
@@ -63,19 +66,20 @@ const activeMenuItem = computed(() => {
 });
 
 const breadcrumbItems = computed(() => {
-    const dashboardItem = menuItems.find((item) => item.to === "/dashboard");
+    const items = menuItems.value;
+    const dashboardItem = items.find((item) => item.to === "/dashboard");
     const currentPath = toDashboardPath(route.path);
-    const items: Array<{ to: string; title: string }> = [];
+    const breadcrumbItemsList: Array<{ to: string; title: string }> = [];
 
     if (!dashboardItem) {
         return activeMenuItem.value ? [activeMenuItem.value] : [];
     }
 
-    items.push({ to: dashboardItem.to, title: dashboardItem.title });
+    breadcrumbItemsList.push({ to: dashboardItem.to, title: dashboardItem.title });
 
     const activeItem = activeMenuItem.value;
     if (activeItem && activeItem.to !== dashboardItem.to) {
-        items.push({ to: activeItem.to, title: activeItem.title });
+        breadcrumbItemsList.push({ to: activeItem.to, title: activeItem.title });
     }
 
     if (
@@ -88,15 +92,15 @@ const breadcrumbItems = computed(() => {
         const lastSegment = segments[segments.length - 1];
 
         if (lastSegment === "create") {
-            items.push({ to: currentPath, title: "Create" });
+            breadcrumbItemsList.push({ to: currentPath, title: "Create" });
         } else if (lastSegment === "edit") {
-            items.push({ to: currentPath, title: "Edit" });
+            breadcrumbItemsList.push({ to: currentPath, title: "Edit" });
         } else if (lastSegment === "stats") {
-            items.push({ to: currentPath, title: "Stats" });
+            breadcrumbItemsList.push({ to: currentPath, title: "Stats" });
         }
     }
 
-    return items.filter(
+    return breadcrumbItemsList.filter(
         (item, index, arr) =>
             index === arr.findIndex((candidate) => candidate.to === item.to),
     );

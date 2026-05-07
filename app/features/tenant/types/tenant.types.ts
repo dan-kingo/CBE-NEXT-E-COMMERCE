@@ -1,4 +1,4 @@
-export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN";
+export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN" | "SUPERADMIN";
 
 export type TenantProfileStatus =
   | "IN_REVIEW"

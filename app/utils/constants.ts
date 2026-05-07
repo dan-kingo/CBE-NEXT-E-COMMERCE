@@ -20,4 +20,9 @@ const menuItems = [
   { title: "Manage Reviews", to: "/dashboard/reviews", icon: MessageSquare },
 ];
 
-export { menuItems };
+const getMenuItems = (role: string | null = null) =>
+  role === "ADMIN"
+    ? menuItems.filter((item) => item.to !== "/dashboard/admin")
+    : menuItems;
+
+export { getMenuItems };
