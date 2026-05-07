@@ -17,6 +17,9 @@ export const useAdminManagement = () => {
   const isSubmitting = ref(false);
   const createdAdmin = ref<UserResponse | null>(null);
   const form = reactive<CreateAdminSchemaInput>({
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
     email: "",
     password: "",
   });
@@ -41,6 +44,9 @@ export const useAdminManagement = () => {
       const created = await adminService.createAdmin(payload);
       createdAdmin.value = created;
       store.prependAdmin(created);
+      form.firstName = "";
+      form.lastName = "";
+      form.phoneNumber = "";
       form.email = "";
       form.password = "";
       return created;

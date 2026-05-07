@@ -18,6 +18,9 @@ export interface UserResponse {
 }
 
 export interface CreateUserRequest {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
   email: string;
   password: string;
   role: UserRole;

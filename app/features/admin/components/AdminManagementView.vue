@@ -2,6 +2,7 @@
 import { useDebounceFn } from "@vueuse/core";
 import { DEFAULT_PAGE_SIZE } from "~/services/pagination";
 import { useAdminManagement } from "~/features/admin/composables/useAdminManagement";
+import { createAdminSchema } from "~/features/admin/schemas/admin.schema";
 import AdminListSkeleton from "~/features/admin/components/AdminListSkeleton.vue";
 import type { UserResponse } from "~/features/admin/types/admin.types";
 
@@ -42,6 +43,42 @@ const isCreateMode = computed(
 const searchQuery = ref("");
 const statusFilter = ref<"all" | "active" | "inactive">("all");
 const openActionMenuForId = ref<string | null>(null);
+const createSubmitAttempted = ref(false);
+
+const getUserId = (admin: UserResponse) => admin.userId ?? admin.id;
+
+const createFormErrors = computed(() => {
+  const parsed = createAdminSchema.safeParse(form);
+
+  if (parsed.success) {
+    return {
+      firstName: "",
+      lastName: "",
+      phoneNumber: "",
+      email: "",
+      password: "",
+    };
+  }
+
+  const fieldErrors = parsed.error.flatten().fieldErrors;
+  return {
+    firstName: fieldErrors.firstName?.[0] ?? "",
+    lastName: fieldErrors.lastName?.[0] ?? "",
+    phoneNumber: fieldErrors.phoneNumber?.[0] ?? "",
+    email: fieldErrors.email?.[0] ?? "",
+    password: fieldErrors.password?.[0] ?? "",
+  };
+});
+
+const hasCreateFormErrors = computed(() =>
+  Boolean(
+    createFormErrors.value.firstName ||
+    createFormErrors.value.lastName ||
+    createFormErrors.value.phoneNumber ||
+    createFormErrors.value.email ||
+    createFormErrors.value.password,
+  ),
+);
 
 const filteredAdmins = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -110,13 +147,40 @@ watch(searchQuery, () => {
   debouncedReload();
 });
 
+watch(admins, (list) => {
+  if (!openActionMenuForId.value) {
+    return;
+  }
+
+  const hasMatchingRow = list.some((admin) => admin.id === openActionMenuForId.value);
+  if (!hasMatchingRow) {
+    openActionMenuForId.value = null;
+  }
+});
+
+watch(statusFilter, () => {
+  closeActionMenu();
+});
+
+watch(searchQuery, () => {
+  closeActionMenu();
+});
+
 const goToCreateAdmin = async () => {
   await router.push("/dashboard/admin/create");
 };
 
 const submitAdmin = async () => {
+  createSubmitAttempted.value = true;
+
+  if (hasCreateFormErrors.value) {
+    toast.error({ message: "Please fix the create admin form errors" });
+    return;
+  }
+
   try {
     await createAdmin();
+    createSubmitAttempted.value = false;
     toast.success({ message: "Admin account created successfully" });
     await router.push("/dashboard/admin");
   } catch (error) {
@@ -130,20 +194,42 @@ const toggleActionMenu = (adminId: string) => {
     openActionMenuForId.value === adminId ? null : adminId;
 };
 
-const toggleStatus = async (admin: UserResponse) => {
+const isStatusDialogOpen = ref(false);
+const adminPendingStatusUpdate = ref<UserResponse | null>(null);
+const pendingEnabled = ref<boolean | null>(null);
+const isStatusSubmitting = ref(false);
+
+const openStatusDialog = (admin: UserResponse) => {
   openActionMenuForId.value = null;
-  const nextStatus = !admin.enabled;
+  adminPendingStatusUpdate.value = admin;
+  // target enabled state is the inverse of current enabled
+  pendingEnabled.value = !admin.enabled;
+  isStatusDialogOpen.value = true;
+};
+
+const closeStatusDialog = () => {
+  isStatusDialogOpen.value = false;
+  adminPendingStatusUpdate.value = null;
+  pendingEnabled.value = null;
+};
+
+const confirmStatusUpdate = async () => {
+  if (!adminPendingStatusUpdate.value || pendingEnabled.value === null) return;
+  isStatusSubmitting.value = true;
   try {
-    await updateAdminStatus(admin.id, nextStatus);
-    toast.success({ message: `Admin ${nextStatus ? 'enabled' : 'disabled'} successfully` });
-    void refreshAdmins({
-      page: adminsPagination.value.page,
-      size: adminsPagination.value.size,
-    });
+    await updateAdminStatus(getUserId(adminPendingStatusUpdate.value), pendingEnabled.value);
+    toast.success({ message: `Admin ${pendingEnabled.value ? 'enabled' : 'disabled'} successfully` });
+    void refreshAdmins({ page: adminsPagination.value.page, size: adminsPagination.value.size });
+    closeStatusDialog();
+    closeActionMenu();
   } catch (error) {
     toast.error({ message: getMessageFromUnknown(error) });
+  } finally {
+    isStatusSubmitting.value = false;
   }
 };
+
+
 
 const closeActionMenu = () => {
   openActionMenuForId.value = null;
@@ -194,6 +280,8 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="space-y-6">
+    <div v-if="openActionMenuForId" class="fixed inset-0 z-40 bg-transparent" @click="closeActionMenu" />
+
     <div v-if="isListMode">
 
 
@@ -250,14 +338,15 @@ onBeforeUnmount(() => {
 
                 <div class="flex justify-end">
                   <div class="relative" data-action-menu>
-                    <Button class="cursor-pointer" size="icon-sm" variant="ghost" @click="toggleActionMenu(admin.id)">
+                    <Button class="cursor-pointer" size="icon-sm" variant="ghost" @click.stop="toggleActionMenu(admin.id)">
                       <Icon name="lucide:ellipsis" class="size-4" />
                     </Button>
 
                     <div v-if="openActionMenuForId === admin.id"
-                      class="absolute right-0 bottom-full z-50 mb-2 min-w-44 rounded-md border bg-background p-1 shadow-lg">
+                      class="absolute right-0 top-full z-50 mt-2 min-w-44 rounded-md border bg-background p-1 shadow-lg"
+                      @click.stop>
                       <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
-                        @click="toggleStatus(admin)">
+                        @click="openStatusDialog(admin)">
                         {{ admin.enabled ? "Disable User" : "Enable User" }}
                       </button>
                     </div>
@@ -299,14 +388,15 @@ onBeforeUnmount(() => {
                     <td class="px-4 py-4 text-right">
                       <div class="relative inline-block" data-action-menu>
                         <Button class="cursor-pointer" size="icon-sm" variant="ghost"
-                          @click="toggleActionMenu(admin.id)">
+                          @click.stop="toggleActionMenu(admin.id)">
                           <Icon name="lucide:ellipsis" class="size-4" />
                         </Button>
 
                         <div v-if="openActionMenuForId === admin.id"
-                          class="absolute right-full top-6 z-50 mb-2 min-w-44 rounded-md border bg-background p-1 text-left shadow-lg">
+                          class="absolute right-0 top-full z-50 mt-2 min-w-44 rounded-md border bg-background p-1 text-left shadow-lg"
+                          @click.stop>
                           <button class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer"
-                            @click="toggleStatus(admin)">
+                            @click="openStatusDialog(admin)">
                             {{ admin.enabled ? "Disable User" : "Enable User" }}
                           </button>
                         </div>
@@ -339,6 +429,27 @@ onBeforeUnmount(() => {
                 </Button>
               </div>
             </div>
+
+            <div v-if="isStatusDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+              @click.self="closeStatusDialog">
+              <div role="dialog" aria-modal="true" aria-labelledby="status-admin-title"
+                class="w-full max-w-md rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-lg transition-colors duration-300">
+                <h3 id="status-admin-title" class="text-lg font-semibold">Update admin status</h3>
+                <p class="mt-2 text-sm text-muted-foreground">
+                  Set <span class="font-medium text-foreground">{{ adminPendingStatusUpdate?.email }}</span>
+                  to <span class="font-medium text-foreground">{{ pendingEnabled ? 'Active' : 'Inactive' }}</span>?
+                </p>
+
+                <div class="mt-6 flex justify-end gap-2">
+                  <Button class="cursor-pointer" variant="outline" :disabled="isStatusSubmitting"
+                    @click="closeStatusDialog">Cancel</Button>
+                  <Button class="cursor-pointer" :disabled="isStatusSubmitting" variant="destructive"
+                    @click="confirmStatusUpdate">
+                    {{ isStatusSubmitting ? 'Updating...' : (pendingEnabled ? 'Enable' : 'Disable') }}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
@@ -359,13 +470,43 @@ onBeforeUnmount(() => {
           class="rounded-2xl border border-border/60 bg-card p-4 text-card-foreground shadow-sm transition-colors duration-300">
           <div class="space-y-4">
             <div class="space-y-2">
+              <Label for="bootstrap-first-name">First Name</Label>
+              <Input id="bootstrap-first-name" v-model="form.firstName" placeholder="John" />
+              <p v-if="createSubmitAttempted && createFormErrors.firstName" class="text-xs text-red-500">
+                {{ createFormErrors.firstName }}
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <Label for="bootstrap-last-name">Last Name</Label>
+              <Input id="bootstrap-last-name" v-model="form.lastName" placeholder="Doe" />
+              <p v-if="createSubmitAttempted && createFormErrors.lastName" class="text-xs text-red-500">
+                {{ createFormErrors.lastName }}
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <Label for="bootstrap-phone-number">Phone Number</Label>
+              <Input id="bootstrap-phone-number" v-model="form.phoneNumber" placeholder="+251 9XX XXX XXX" />
+              <p v-if="createSubmitAttempted && createFormErrors.phoneNumber" class="text-xs text-red-500">
+                {{ createFormErrors.phoneNumber }}
+              </p>
+            </div>
+
+            <div class="space-y-2">
               <Label for="bootstrap-email">Email</Label>
               <Input id="bootstrap-email" v-model="form.email" placeholder="admin@company.com" />
+              <p v-if="createSubmitAttempted && createFormErrors.email" class="text-xs text-red-500">
+                {{ createFormErrors.email }}
+              </p>
             </div>
 
             <div class="space-y-2">
               <Label for="bootstrap-password">Password</Label>
               <Input id="bootstrap-password" v-model="form.password" type="password" placeholder="At least 8 chars" />
+              <p v-if="createSubmitAttempted && createFormErrors.password" class="text-xs text-red-500">
+                {{ createFormErrors.password }}
+              </p>
             </div>
 
             <div class="flex items-center gap-2 pt-2">

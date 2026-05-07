@@ -61,7 +61,11 @@ const normalizeAdminList = (
       content: response.data.content ?? [],
       pagination:
         response.data.pagination ??
-        createFallbackPagination(page, size, response.data.content?.length ?? 0),
+        createFallbackPagination(
+          page,
+          size,
+          response.data.content?.length ?? 0,
+        ),
     };
   }
 
@@ -84,19 +88,28 @@ export const adminService = {
   async createAdmin(payload: CreateUserRequest) {
     const { $api } = useNuxtApp();
 
+    const normalizedPayload: CreateUserRequest = {
+      ...payload,
+      firstName: payload.firstName?.trim(),
+      lastName: payload.lastName?.trim(),
+      phoneNumber: payload.phoneNumber?.trim(),
+      email: payload.email.trim(),
+    };
+
     return await $api<UserResponse>("/users/admins", {
       method: "POST",
-      body: payload,
+      body: normalizedPayload,
     });
   },
 
-  async updateStatus(adminId: string, enabled: boolean) {
+  async updateStatus(userId: string, enabled: boolean) {
     const { $api } = useNuxtApp();
+    // API expects enabled as query parameter (true/false)
     const response = await $api<UserResponse | ApiResponse<UserResponse>>(
-      `/users/admins/${adminId}/status`,
+      `/admins/${userId}/status`,
       {
         method: "PATCH",
-        body: { enabled },
+        query: { enabled: enabled ? "true" : "false" },
       },
     );
 

@@ -4,6 +4,7 @@ import { getMenuItems } from "~/utils/constants";
 import { ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const route = useRoute();
+const router = useRouter();
 const { logout, profile, fetchProfile, role } = useAuth();
 const toast = useToast();
 
@@ -82,6 +83,8 @@ const breadcrumbItems = computed(() => {
     const activeItem = activeMenuItem.value;
     if (activeItem && activeItem.to !== dashboardItem.to) {
         breadcrumbItemsList.push({ to: activeItem.to, title: activeItem.title });
+    } else if (currentPath === "/dashboard/settings" || currentPath.startsWith("/dashboard/settings/")) {
+        breadcrumbItemsList.push({ to: "/dashboard/settings", title: "Settings" });
     }
 
     if (
@@ -226,16 +229,25 @@ const handleLogout = async () => {
                                     {{ adminName }}
                                 </p>
                                 <p class="text-sm text-muted-foreground">{{ adminEmail }}</p>
-                                <p class="bg-brand/10 text-sm font-medium text-brand px-2 py-1 rounded-full inline-block mt-2">
+                                <p
+                                    class="bg-brand/10 text-sm font-medium text-brand px-2 py-1 rounded-full inline-block mt-2">
                                     {{ adminRole }}
                                 </p>
                             </div>
 
-                            <Button variant="outline" class="w-full cursor-pointer justify-start"
-                                @click.prevent="handleLogout">
-                                <Icon name="lucide:log-out" />
-                                Logout
-                            </Button>
+                            <div class="space-y-2">
+                                <Button class="w-full cursor-pointer justify-start" variant="ghost"
+                                    @click.prevent="() => { isProfileMenuOpen = false; void router.push('/dashboard/settings') }">
+                                    <Icon name="lucide:settings" />
+                                    Settings
+                                </Button>
+
+                                <Button variant="outline" class="w-full cursor-pointer justify-start"
+                                    @click.prevent="handleLogout">
+                                    <Icon name="lucide:log-out" />
+                                    Logout
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

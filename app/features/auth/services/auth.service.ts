@@ -68,4 +68,63 @@ export const authService = {
 
     return mapAuthProfileDto(profile);
   },
+
+  async updateProfile(payload: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  }) {
+    const { $api } = useNuxtApp();
+    const response = await $api<unknown>("/admins/me", {
+      method: "PATCH",
+      body: payload,
+    });
+
+    const parsed = profileResponseSchema.parse(response);
+    assertStatusCode(parsed.status);
+
+    // resolve profile similar to getMe
+    let profile = parsed.profile;
+    if (!profile && parsed.data) {
+      if (
+        "firstName" in parsed.data &&
+        "lastName" in parsed.data &&
+        "email" in parsed.data
+      ) {
+        profile = parsed.data;
+      } else if ("profile" in parsed.data) {
+        profile = (parsed.data as any).profile;
+      }
+    }
+
+    if (!profile) {
+      return null;
+    }
+
+    return mapAuthProfileDto(profile);
+  },
+
+  async changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    const { $api } = useNuxtApp();
+
+    // Attempt to change password on admin profile
+    const response = await $api<unknown>("/admins/me/password", {
+      method: "PATCH",
+      body: payload,
+    });
+
+    // Accept either direct status or wrapped response
+    const parsed =
+      response && typeof response === "object"
+        ? (response as any)
+        : { status: undefined };
+    if (parsed.status) {
+      assertStatusCode(parsed.status);
+    }
+
+    return true;
+  },
 };

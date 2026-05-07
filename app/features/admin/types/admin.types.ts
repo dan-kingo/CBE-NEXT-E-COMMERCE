@@ -1,6 +1,9 @@
 export type UserRole = "CUSTOMER" | "TENANT" | "ADMIN" | "SUPERADMIN";
 
 export interface CreateAdminInput {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
   email: string;
   password: string;
 }
@@ -11,6 +14,7 @@ export interface CreateUserRequest extends CreateAdminInput {
 
 export interface UserResponse {
   id: string;
+  userId?: string;
   email: string;
   role: UserRole;
   enabled: boolean;

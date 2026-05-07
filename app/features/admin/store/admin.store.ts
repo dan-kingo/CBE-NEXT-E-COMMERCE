@@ -17,6 +17,8 @@ interface CachedPage<T> extends PaginatedListResult<T> {
 }
 
 const getCacheKey = (page: number, size: number) => `${page}:${size}`;
+const getEntityId = (admin: Pick<UserResponse, "id" | "userId">) =>
+  admin.userId ?? admin.id;
 
 const inFlightAdminPages = new Map<
   string,
@@ -155,10 +157,7 @@ export const useAdminStore = defineStore("admin", {
     },
 
     prependAdmin(admin: UserResponse) {
-      const nextAdmins = [admin, ...this.admins].slice(
-        0,
-        this.pagination.size,
-      );
+      const nextAdmins = [admin, ...this.admins].slice(0, this.pagination.size);
       this.admins = nextAdmins;
       this.pagination = {
         ...this.pagination,
@@ -203,8 +202,12 @@ export const useAdminStore = defineStore("admin", {
     },
 
     patchAdmin(updated: UserResponse) {
+      const updatedEntityId = getEntityId(updated);
+
       this.admins = this.admins.map((admin) =>
-        admin.id === updated.id ? { ...admin, ...updated } : admin,
+        getEntityId(admin) === updatedEntityId
+          ? { ...admin, ...updated }
+          : admin,
       );
 
       const currentKey = getCacheKey(
@@ -216,14 +219,55 @@ export const useAdminStore = defineStore("admin", {
         this.pageCache[currentKey] = {
           ...currentCached,
           content: currentCached.content.map((admin) =>
-            admin.id === updated.id ? { ...admin, ...updated } : admin,
+            getEntityId(admin) === updatedEntityId
+              ? { ...admin, ...updated }
+              : admin,
           ),
         };
       }
     },
 
-    async updateAdminStatus(adminId: string, enabled: boolean) {
-      const updated = await adminService.updateStatus(adminId, enabled);
+    removeAdmin(userId: string) {
+      this.admins = this.admins.filter((a) => getEntityId(a) !== userId);
+
+      // adjust pagination counts
+      const nextTotal = Math.max(0, this.pagination.totalElements - 1);
+      const nextNumberOfElements = Math.max(
+        0,
+        this.pagination.numberOfElements - 1,
+      );
+
+      this.pagination = {
+        ...this.pagination,
+        totalElements: nextTotal,
+        numberOfElements: nextNumberOfElements,
+        totalPages: Math.max(
+          0,
+          Math.ceil(nextTotal / Math.max(this.pagination.size, 1)),
+        ),
+      };
+
+      // update cache entries
+      Object.keys(this.pageCache).forEach((key) => {
+        const cached = this.pageCache[key];
+        if (!cached) return;
+        this.pageCache[key] = {
+          ...cached,
+          content: cached.content.filter((a) => getEntityId(a) !== userId),
+          pagination: {
+            ...cached.pagination,
+            totalElements: Math.max(0, cached.pagination.totalElements - 1),
+            numberOfElements: Math.max(
+              0,
+              cached.pagination.numberOfElements - 1,
+            ),
+          },
+        };
+      });
+    },
+
+    async updateAdminStatus(userId: string, enabled: boolean) {
+      const updated = await adminService.updateStatus(userId, enabled);
       this.patchAdmin(updated);
       return updated;
     },
