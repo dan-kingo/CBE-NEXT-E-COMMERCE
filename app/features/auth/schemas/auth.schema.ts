@@ -49,9 +49,12 @@ export const profileResponseSchema = z
     status: apiStatusSchema.optional(),
     profile: authProfileSchema.optional(),
     data: z
-      .object({
-        profile: authProfileSchema.optional(),
-      })
+      .union([
+        authProfileSchema,
+        z.object({
+          profile: authProfileSchema.optional(),
+        }),
+      ])
       .optional(),
   })
   .passthrough();

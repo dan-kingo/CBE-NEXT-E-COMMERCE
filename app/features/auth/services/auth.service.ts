@@ -43,11 +43,25 @@ export const authService = {
   async getMe() {
     const { $api } = useNuxtApp();
 
-    const response = await $api<unknown>("/profile/me");
+    const response = await $api<unknown>("/admins/me");
     const parsed = profileResponseSchema.parse(response);
     assertStatusCode(parsed.status);
 
-    const profile = parsed.profile ?? parsed.data?.profile;
+    // Handle both response structures: profile at root, nested under data.profile, or data is the profile itself
+    let profile = parsed.profile;
+    if (!profile && parsed.data) {
+      // Check if data is the profile object itself (has firstName, lastName, email, role)
+      if (
+        "firstName" in parsed.data &&
+        "lastName" in parsed.data &&
+        "email" in parsed.data
+      ) {
+        profile = parsed.data;
+      } else if ("profile" in parsed.data) {
+        profile = (parsed.data as any).profile;
+      }
+    }
+
     if (!profile) {
       return null;
     }

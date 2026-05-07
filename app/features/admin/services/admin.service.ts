@@ -112,7 +112,7 @@ export const adminService = {
       | PaginatedApiResponse<UserResponse>
       | ApiResponse<PaginatedApiResponse<UserResponse>>
       | UserResponse[]
-    >("/users/admins", {
+    >("/admins", {
       query: { page, size },
     });
 

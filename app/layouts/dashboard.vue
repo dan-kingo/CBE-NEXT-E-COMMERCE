@@ -46,6 +46,8 @@ const adminName = computed(() => {
     return `${firstName} ${lastName}`;
 });
 
+const adminRole = computed(() => profile.value?.role ?? "Admin");
+
 const adminEmail = computed(() => profile.value?.email || "admin@example.com");
 
 const activeMenuItem = computed(() => {
@@ -210,7 +212,7 @@ const handleLogout = async () => {
                             class="h-12 cursor-pointer rounded-full border border-border/60 bg-background px-2 pr-3 shadow-sm transition-colors duration-300 dark:bg-slate-950/90"
                             @click="isProfileMenuOpen = !isProfileMenuOpen">
                             <span
-                                class="flex size-9 items-center justify-center rounded-full bg-brand/20 text-sm font-semibold text-brand/80">
+                                class="flex size-9 items-center justify-center rounded-full bg-brand/20 text-lg font-semibold text-brand/80">
                                 {{ profileInitials }}
                             </span>
                             <ChevronDown class="size-5 text-muted-foreground transition-transform"
@@ -224,6 +226,9 @@ const handleLogout = async () => {
                                     {{ adminName }}
                                 </p>
                                 <p class="text-sm text-muted-foreground">{{ adminEmail }}</p>
+                                <p class="bg-brand/10 text-sm font-medium text-brand px-2 py-1 rounded-full inline-block mt-2">
+                                    {{ adminRole }}
+                                </p>
                             </div>
 
                             <Button variant="outline" class="w-full cursor-pointer justify-start"
