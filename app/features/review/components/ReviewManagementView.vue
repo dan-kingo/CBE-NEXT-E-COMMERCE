@@ -24,6 +24,7 @@ const {
     loadReviews,
     refreshReviews,
     decideReview,
+    deleteReview,
 } = useReviewManagement();
 
 const moderationStatusOptions: Array<{
@@ -56,6 +57,9 @@ const reviewPendingDecision = ref<ReviewResponse | null>(null);
 const rejectionReason = ref("");
 const decidingById = ref<Record<number, boolean>>({});
 const openActionMenuForId = ref<number | null>(null);
+const isDeleteDialogOpen = ref(false);
+const reviewPendingDelete = ref<ReviewResponse | null>(null);
+const deletingById = ref<Record<number, boolean>>({});
 
 const isInitialLoading = computed(
     () => isReviewsLoading.value && !reviewsLoaded.value,
@@ -130,10 +134,21 @@ const openRejectDialog = (review: ReviewResponse) => {
     isRejectDialogOpen.value = true;
 };
 
+const openDeleteDialog = (review: ReviewResponse) => {
+    openActionMenuForId.value = null;
+    reviewPendingDelete.value = review;
+    isDeleteDialogOpen.value = true;
+};
+
 const closeRejectDialog = () => {
     isRejectDialogOpen.value = false;
     reviewPendingDecision.value = null;
     rejectionReason.value = "";
+};
+
+const closeDeleteDialog = () => {
+    isDeleteDialogOpen.value = false;
+    reviewPendingDelete.value = null;
 };
 
 const runDecision = async (
@@ -195,6 +210,39 @@ const submitRejectDecision = async () => {
 
     await runDecision(reviewPendingDecision.value, "REJECT", rejectionReason.value);
     closeRejectDialog();
+};
+
+const confirmDeleteReview = async () => {
+    if (!reviewPendingDelete.value) {
+        return;
+    }
+
+    const review = reviewPendingDelete.value;
+    deletingById.value = {
+        ...deletingById.value,
+        [review.id]: true,
+    };
+
+    try {
+        await deleteReview(review.id);
+        toast.success({ message: "Review deleted" });
+        void refreshReviews({
+            ...normalizedFilters.value,
+            page: reviewsPagination.value.page,
+            size:
+                reviewsPagination.value.size > 1
+                    ? reviewsPagination.value.size
+                    : DEFAULT_PAGE_SIZE,
+        });
+        closeDeleteDialog();
+    } catch (error) {
+        toast.error({ message: getMessageFromUnknown(error) });
+    } finally {
+        deletingById.value = {
+            ...deletingById.value,
+            [review.id]: false,
+        };
+    }
 };
 
 const toggleActionMenu = (reviewId: number) => {
@@ -405,6 +453,12 @@ onBeforeUnmount(() => {
                                                     @click="openRejectDialog(review)">
                                                     Reject
                                                 </button>
+                                                <button
+                                                    class="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-destructive/10 text-destructive cursor-pointer"
+                                                    :disabled="deletingById[review.id]"
+                                                    @click="openDeleteDialog(review)">
+                                                    Delete
+                                                </button>
                                             </div>
                                         </div>
                                     </td>
@@ -460,6 +514,29 @@ onBeforeUnmount(() => {
                     <Button class="cursor-pointer" variant="outline" @click="closeRejectDialog">Cancel</Button>
                     <Button class="cursor-pointer" variant="destructive" @click="submitRejectDecision">
                         Reject review
+                    </Button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="isDeleteDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            @click.self="closeDeleteDialog">
+            <div role="dialog" aria-modal="true" aria-labelledby="delete-review-title"
+                class="w-full max-w-md rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-lg transition-colors duration-300">
+                <h3 id="delete-review-title" class="text-lg font-semibold">Delete review</h3>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    This will permanently delete
+                    <span class="font-medium text-foreground">{{ reviewPendingDelete?.title }}</span>.
+                    This action cannot be undone.
+                </p>
+
+                <div class="mt-6 flex justify-end gap-2">
+                    <Button class="cursor-pointer" variant="outline" @click="closeDeleteDialog">Cancel</Button>
+                    <Button class="cursor-pointer" variant="destructive"
+                        :disabled="reviewPendingDelete ? deletingById[reviewPendingDelete.id] : false"
+                        @click="confirmDeleteReview">
+                        {{ reviewPendingDelete && deletingById[reviewPendingDelete.id] ? 'Deleting...' : 'Delete review'
+                        }}
                     </Button>
                 </div>
             </div>

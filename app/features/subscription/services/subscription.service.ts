@@ -15,17 +15,8 @@ import type {
   PaginatedApiResponse,
   PaginatedListResult,
 } from "~/types/admin";
-import type {
-  ApiStatus as TenantApiStatus,
-  UserResponse as TenantUserResponse,
-} from "~/features/tenant/types/tenant.types";
 interface ApiResponse<T> {
   status: ApiStatus;
-  data: T;
-}
-
-interface TenantApiResponse<T> {
-  status: TenantApiStatus;
   data: T;
 }
 
@@ -116,24 +107,6 @@ const normalizeStatsResponse = (
     : response;
 };
 
-const isTenantApiResponse = <T>(
-  value: unknown,
-): value is TenantApiResponse<T> => {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  return "data" in (value as Record<string, unknown>);
-};
-
-const normalizeTenantResponse = (
-  response: TenantUserResponse | TenantApiResponse<TenantUserResponse>,
-) => {
-  return isTenantApiResponse<TenantUserResponse>(response)
-    ? response.data
-    : response;
-};
-
 export const subscriptionService = {
   async create(payload: CreatePlanRequest) {
     const { $api } = useNuxtApp();
@@ -152,14 +125,10 @@ export const subscriptionService = {
     payload: AssignTenantSubscriptionRequest,
   ) {
     const { $api } = useNuxtApp();
-    const response = await $api<
-      TenantUserResponse | TenantApiResponse<TenantUserResponse>
-    >(`/api/admin/tenants/${tenantId}/subscription`, {
+    await $api<void>(`/admin/tenants/${tenantId}/subscription`, {
       method: "POST",
       body: payload,
     });
-
-    return normalizeTenantResponse(response);
   },
 
   async getAll(params: SubscriptionPlanQueryRequest = {}) {

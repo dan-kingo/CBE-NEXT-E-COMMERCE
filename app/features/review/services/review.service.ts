@@ -137,4 +137,16 @@ export const reviewService = {
 
     return normalizeReviewResponse(response);
   },
+
+  async deleteReview(reviewId: number) {
+    const { $api } = useNuxtApp();
+    const response = await $api<void | ApiResponse<void>>(
+      `/reviews/admin/${reviewId}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    return response;
+  },
 };

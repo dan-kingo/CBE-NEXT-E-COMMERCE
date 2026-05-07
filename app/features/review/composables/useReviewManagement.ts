@@ -15,6 +15,7 @@ export const useReviewManagement = () => {
     loadReviews: store.ensureReviews,
     refreshReviews: store.revalidateReviews,
     decideReview: store.decideReview,
+    deleteReview: store.deleteReview,
     invalidateReviews: store.invalidateReviews,
   };
 };

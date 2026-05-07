@@ -269,6 +269,44 @@ export const useReviewStore = defineStore("review", {
       }
     },
 
+    removeReview(reviewId: number) {
+      this.reviews = this.reviews.filter((review) => review.id !== reviewId);
+
+      const nextNumberOfElements = Math.max(
+        0,
+        this.pagination.numberOfElements - 1,
+      );
+
+      this.pagination = {
+        ...this.pagination,
+        totalElements: Math.max(0, this.pagination.totalElements - 1),
+        numberOfElements: nextNumberOfElements,
+        empty: this.reviews.length === 0,
+      };
+
+      Object.keys(this.pageCache).forEach((key) => {
+        const cached = this.pageCache[key];
+        if (!cached) {
+          return;
+        }
+
+        const nextContent = cached.content.filter(
+          (review) => review.id !== reviewId,
+        );
+
+        this.pageCache[key] = {
+          ...cached,
+          content: nextContent,
+          pagination: {
+            ...cached.pagination,
+            totalElements: Math.max(0, cached.pagination.totalElements - 1),
+            numberOfElements: nextContent.length,
+            empty: nextContent.length === 0,
+          },
+        };
+      });
+    },
+
     async decideReview(reviewId: number, payload: AdminReviewDecisionRequest) {
       const updated = await reviewService.decide(reviewId, payload);
       this.upsertReview(updated);
